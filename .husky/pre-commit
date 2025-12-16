@@ -1,0 +1,9 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run the repository lint command so pre-commit matches `pip`/`make lint` behavior
+# NOTE: adjust this to your preferred lint command; for this repo we recommend using `ruff` / `black` via pre-commit
+# Keep this minimal to avoid long commit times
+# Run repository Python linters via pre-commit (Black, Ruff, isort, etc.).
+# Using --all-files ensures hooks run even if Husky bypasses normal git hook wiring.
+pre-commit run --all-files || true

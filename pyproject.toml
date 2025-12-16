@@ -1,0 +1,56 @@
+[build-system]
+requires = ["poetry-core>=1.6"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "songshare-analysis"
+version = "0.1.0"
+description = "Analysis tools for Songshare data"
+readme = "README.md"
+license = "MIT"
+authors = ["Your Name <you@example.com>"]
+packages = [{ include = "songshare_analysis", from = "src" }]
+scripts = { "songshare-analyze" = "songshare_analysis.__main__:main" }
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 88
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "C", "B", "PLW"]
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = false
+warn_unused_configs = true
+pretty = true
+show_error_codes = true
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+pandas = "^2.3"
+numpy = "^2.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+black = "^24.3"
+ruff = "^0.14.9"
+isort = "^5.12"
+pre-commit = "^3.5"
+mypy = "^1.9"
+# pandas-stubs removed due to Python 3.12 compatibility; add back when a compatible release exists
+pytest-cov = "^4.1"
+
+# Ensure strict mode across tests as well
+ # Tests are checked under strict mode via CLI/Makefile

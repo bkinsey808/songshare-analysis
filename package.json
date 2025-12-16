@@ -1,0 +1,28 @@
+{
+  "name": "songshare-analysis",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "prepare": "husky install",
+    "commit": "git-cz",
+    "commitlint": "commitlint",
+    "commitlint:range": "commitlint --from=origin/main --to=HEAD",
+    "commitlint:edit": "commitlint --edit"
+  },
+  "lint-staged": {
+    "*.{py,md,txt}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.8.1",
+    "@commitlint/config-conventional": "^17.8.1",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.3.0"
+  },
+  "packageManager": "npm@10.13.1"
+}

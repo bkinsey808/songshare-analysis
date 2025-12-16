@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.28.0
+    hooks:
+      - id: ruff
+        # Auto-fix when possible; this will run ruff in --fix mode for staged files.
+        args: ["--fix"]
+        language_version: python3
+
+  - repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.12.0
+    hooks:
+      - id: isort
+        language_version: python3
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/pycqa/mccabe
+    rev: "0.7.0"
+    hooks:
+      - id: mccabe
+        args: ["--max-complexity=12"]

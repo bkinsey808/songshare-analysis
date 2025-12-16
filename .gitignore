@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.mccabe_cache/
+.pytest_cache/
+venv/
+
+# IDE
+.vscode/
+pip-wheel-metadata/
+
+# Python environment
+.python-version
+
+# IPython/Jupyter
+.ipynb_checkpoints/
+.idea/
+
+# Pytest
+.coverage
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+node_modules/

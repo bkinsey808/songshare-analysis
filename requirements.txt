@@ -1,0 +1,8 @@
+# Minimal runtime requirements
+# Add your runtime dependencies here, e.g.:
+# pandas>=1.5.0
+# numpy>=1.25.0
+
+# Example
+pandas>=1.5.0
+numpy>=1.25.0
