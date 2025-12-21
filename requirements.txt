@@ -6,3 +6,5 @@
 # Example
 pandas>=1.5.0
 numpy>=1.25.0
+mutagen>=1.46.0
+musicbrainzngs>=0.7.1
