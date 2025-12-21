@@ -1,5 +1,4 @@
 from __future__ import annotations
-# ruff: noqa: I001
 
 import builtins
 import logging
@@ -8,9 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import songshare_analysis.id3_cli_print as id3_print
 import songshare_analysis.id3_cli_apply as id3_apply
+import songshare_analysis.id3_cli_print as id3_print
 import songshare_analysis.id3_cover as id3mod
+
+# ruff: noqa: I001
 
 
 def test_print_proposed_metadata_truncation(capsys: pytest.CaptureFixture[str]) -> None:
@@ -70,9 +71,7 @@ def test_maybe_embed_cover_calls_embed_and_handles_results(
 
     # Return True -> propagated, no warning
     monkeypatch.setattr(id3mod, "_embed_cover_if_needed", lambda p, u: True)
-    res = id3_apply._maybe_embed_cover(
-        Path("foo.mp3"), args, mb_info, logger
-    )
+    res = id3_apply._maybe_embed_cover(Path("foo.mp3"), args, mb_info, logger)
     assert res is True
     assert not any(
         "Cover art embedding failed" in r.getMessage() for r in caplog.records
@@ -80,9 +79,7 @@ def test_maybe_embed_cover_calls_embed_and_handles_results(
 
     # Return False -> logs visible warning and returns False
     monkeypatch.setattr(id3mod, "_embed_cover_if_needed", lambda p, u: False)
-    res = id3_apply._maybe_embed_cover(
-        Path("foo.mp3"), args, mb_info, logger
-    )
+    res = id3_apply._maybe_embed_cover(Path("foo.mp3"), args, mb_info, logger)
     assert res is False
     assert any(
         "Cover art embedding failed; skipping metadata apply for this file."
@@ -97,8 +94,8 @@ def test_apply_metadata_safe_logs_on_exception(monkeypatch: pytest.MonkeyPatch) 
         raise RuntimeError("boom")
 
     import songshare_analysis.id3_cli_apply as id3_apply
-    monkeypatch.setattr(id3_apply, "apply_metadata", fake_apply)
 
+    monkeypatch.setattr(id3_apply, "apply_metadata", fake_apply)
 
     class DummyLogger:
         def __init__(self) -> None:

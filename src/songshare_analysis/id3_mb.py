@@ -396,5 +396,7 @@ def propose_metadata_from_mb(mb_info: Dict[str, Any]) -> Dict[str, str]:
         out["TXXX:musicbrainz_recording_id"] = str(mb_info["recording_id"])
     if mb_info.get("release_id"):
         out["TXXX:musicbrainz_release_id"] = str(mb_info["release_id"])
-    out["TXXX:musicbrainz_provenance"] = str(mb_info.get("provenance", {}))
+    prov = mb_info.get("provenance", {})
+    if prov:
+        out["TXXX:musicbrainz_provenance"] = str(prov)
     return out

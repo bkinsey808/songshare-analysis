@@ -1,16 +1,17 @@
 from __future__ import annotations
-# ruff: noqa: I001
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
-from .id3_io import read_id3
+from .id3_cli_apply import _maybe_propose_and_apply
 from .id3_cli_print import (
-    _print_basic_info,
     _fetch_and_print_musicbrainz,
+    _print_basic_info,
     _should_skip_mb_fetch,
 )
-from .id3_cli_apply import _maybe_propose_and_apply
+from .id3_io import read_id3
+
+# ruff: noqa: I001
 
 
 def _process_file(f: Path, args: Any, logger: Any) -> dict[str, object]:
@@ -26,8 +27,7 @@ def _process_file(f: Path, args: Any, logger: Any) -> dict[str, object]:
     tags = _print_basic_info(info, logger, getattr(args, "verbose", False))
 
     if not (
-        getattr(args, "fetch_metadata", False)
-        or getattr(args, "fetch-metadata", False)
+        getattr(args, "fetch_metadata", False) or getattr(args, "fetch-metadata", False)
     ):
         return {"applied": False, "embed": None}
 
@@ -42,7 +42,7 @@ def _process_file(f: Path, args: Any, logger: Any) -> dict[str, object]:
     if not mb_info:
         return {"applied": False, "embed": None}
 
-    return _maybe_propose_and_apply(f, args, logger, mb_info)
+    return _maybe_propose_and_apply(f, args, logger, mb_info, tags)
 
 
 def _process_all_files(
@@ -123,8 +123,8 @@ def handle_id3_command(args: Any, logger: Any) -> None:
     covers_failed = 0
 
     # Use module-level helpers to process files
-    files_processed, tags_applied, covers_embedded, covers_failed = (
-        _process_all_files(files, args, logger)
+    files_processed, tags_applied, covers_embedded, covers_failed = _process_all_files(
+        files, args, logger
     )
 
     # Emit a concise summary

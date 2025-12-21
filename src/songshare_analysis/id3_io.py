@@ -158,6 +158,14 @@ def _add_common_mp3_frames(
         if not proposed.get(frame_key):
             return
         if _has_value(frame_key):
+            # If the existing core frame matches the proposed value exactly,
+            # there is nothing to do (no need to create a TXXX proposed frame).
+            try:
+                existing = str(tags.get(frame_key))
+            except Exception:
+                existing = ""
+            if str(existing).strip() == str(proposed[frame_key]).strip():
+                return
             proposed["TXXX:musicbrainz_proposed_" + frame_key] = proposed[frame_key]
             return
         ctor_args = {"encoding": 3, "text": [proposed[frame_key]]}

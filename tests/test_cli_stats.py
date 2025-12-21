@@ -29,12 +29,21 @@ def test_cli_stats_counts_apply_and_embed(
     monkeypatch.setattr(id3_process, "read_id3", fake_read)
 
     # musicbrainz_lookup returns a cover_art url so embed attempted
-    monkeypatch.setattr(id3mb, "musicbrainz_lookup", lambda tags: {"cover_art": "https://example.com/cover.jpg"})
-    monkeypatch.setattr(id3mb, "musicbrainz_lookup", lambda tags: {"cover_art": "https://example.com/cover.jpg"})
+    monkeypatch.setattr(
+        id3mb,
+        "musicbrainz_lookup",
+        lambda tags: {"cover_art": "https://example.com/cover.jpg"},
+    )
+    monkeypatch.setattr(
+        id3mb,
+        "musicbrainz_lookup",
+        lambda tags: {"cover_art": "https://example.com/cover.jpg"},
+    )
 
     # propose_metadata returns something so apply is attempted
     monkeypatch.setattr(id3mb, "propose_metadata_from_mb", lambda mb: {"TIT2": "New"})
     import songshare_analysis.id3_cli_apply as id3_apply
+
     monkeypatch.setattr(
         id3_apply,
         "propose_metadata_from_mb",
@@ -57,19 +66,22 @@ def test_cli_stats_counts_apply_and_embed(
         applied[str(path)] = proposed
 
     import songshare_analysis.id3_cli_apply as id3_apply
+
     monkeypatch.setattr(id3_apply, "apply_metadata", fake_apply)
     monkeypatch.setattr(id3_apply, "apply_metadata", fake_apply)
 
     caplog.set_level(logging.INFO)
 
-    main([
-        "id3",
-        "dummy",
-        "--fetch-metadata",
-        "--apply-metadata",
-        "--yes",
-        "--embed-cover-art",
-    ])
+    main(
+        [
+            "id3",
+            "dummy",
+            "--fetch-metadata",
+            "--apply-metadata",
+            "--yes",
+            "--embed-cover-art",
+        ]
+    )
 
     # Ensure apply was called for a.mp3 and c.mp3 but not for b.mp3 (embed failed)
     assert "a.mp3" in applied
