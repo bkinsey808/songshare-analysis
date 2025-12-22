@@ -1,6 +1,6 @@
 ---
 description: "Python development agent for this repository. Runs checks, creates small well-tested changes, and enforces repo conventions."
-tools: []
+tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand']
 ---
 # Purpose
 This custom agent is responsible for making small, well-scoped Python changes in the repository (`songshare-analysis`). It helps with:
@@ -21,12 +21,18 @@ This repository is a venv/Poetry project. Many commands (lint, typecheck, tests,
 
 # Checklist the agent must enforce for any change (in this order)
 1. Keep individual files small when possible (prefer <400 LOC). Split large files into well-named modules.
-2. Prefer many small files grouped into tidy directories over a few huge files.
-3. Ensure code is fully linted and type-checked: `ruff`, `black`, `isort`, and `mypy --strict` must pass.
-4. Avoid `# type: ignore` and ruff/mypy disable comments where possible; if unavoidable, add a `TODO` comment referencing a short justification.
-5. Add tests colocated with source files (mirror path and filename with `.py` -> `_test.py` or `test_*.py` style used in repository). Tests should run under `pytest`.
-6. Ensure the project builds (if applicable) and unit tests pass.
-7. Run the verification script `scripts/agent-verify-project.sh` (or `scripts/agent_checks.py`) and get a clean report before requesting review.
+2. Avoid the Any type if at all possible; use precise types and `TypedDict` for dicts.
+3. Test file names and directory structure should mirror source files. I like test files colocated with source files.
+4. Prefer many small files grouped into tidy directories over a few huge files.
+5. Stub files and deprecation shims should be fully removed after refactoring, call sites should be updated.
+6. Ensure code is fully linted and type-checked: `ruff`, `black`, `isort`, `mypy --strict`, and `pylance` must pass.
+7. Avoid `# type: ignore` and ruff/mypy disable comments where possible; if unavoidable, add a `TODO` comment referencing a short justification.
+8. Add tests colocated with source files (mirror path and filename with `.py` -> `_test.py` or `test_*.py` style used in repository). Tests should run under `pytest`.
+9. Ensure the project builds (if applicable) and unit tests pass.
+10. Run the verification script `scripts/agent-verify-project.sh` (or `scripts/agent_checks.py`) and get a clean report before requesting review.
+
+Do not return control to the user until actual changes have been made. You don't have to ask questions like "Should I proceed?" unless absolutely necessary.
+
 
 # Reporting and milestone preambles
 Follow the repository's milestone preamble style when reporting progress. Provide short, focused preambles at milestones (setup complete, major discovery, fix implemented, tests passed, wrap up). Keep them short and state next steps.

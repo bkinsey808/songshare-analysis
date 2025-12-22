@@ -4,13 +4,14 @@ from logging import Logger
 from pathlib import Path
 from typing import Protocol
 
+from songshare_analysis.id3_io import read_id3
+
 from .id3_cli_apply import _maybe_propose_and_apply
 from .id3_cli_print import (
     _fetch_and_print_musicbrainz,
     _print_basic_info,
     _should_skip_mb_fetch,
 )
-from .id3_io import read_id3
 
 
 class ProcessArgs(Protocol):

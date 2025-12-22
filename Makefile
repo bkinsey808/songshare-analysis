@@ -40,9 +40,9 @@ lint:
 
 typecheck:
 	@if command -v poetry >/dev/null 2>&1; then \
-		poetry run mypy --strict src tests; \
+		poetry run mypy --strict src; \
 	else \
-		. .venv/bin/activate && mypy --strict src tests; \
+		. .venv/bin/activate && mypy --strict src; \
 	fi
 
 format:

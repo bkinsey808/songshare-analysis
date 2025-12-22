@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from logging import Logger
 
-from .types import ID3ReadResult, MBInfo, TagValue
+from songshare_analysis.types import ID3ReadResult, MBInfo, TagValue
 
 
 def _print_basic_info(
@@ -56,7 +56,7 @@ def _fetch_and_print_musicbrainz(
 
     Returns mb_info or None on error.
     """
-    from .mb import musicbrainz_lookup
+    from songshare_analysis.mb import musicbrainz_lookup
 
     # musicbrainz_lookup expects a mapping of str->str; coerce/filter values
     # to strings to avoid passing binary/list values through.

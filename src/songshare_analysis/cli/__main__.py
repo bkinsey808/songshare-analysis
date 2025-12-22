@@ -11,7 +11,7 @@ import logging
 from collections.abc import Sequence
 from typing import cast
 
-from .core import dataframe_summary, sample_dataframe
+from songshare_analysis.core import dataframe_summary, sample_dataframe
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 authors = ["Your Name <you@example.com>"]
 packages = [{ include = "songshare_analysis", from = "src" }]
-scripts = { "songshare-analyze" = "songshare_analysis.__main__:main" }
+scripts = { "songshare-analyze" = "songshare_analysis.cli.__main__:main" }
 
 [tool.black]
 line-length = 88
@@ -21,7 +21,14 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "C", "B", "PLW"]
-per-file-ignores = { "tests/**" = ["S101", "D100", "D103", "INP001", "PLC0415", "BLE001", "PGH003", "SLF001", "ARG001", "ARG005", "TRY003", "EM101", "N806", "TC002", "PT018", "PLR2004", "FBT001", "E501", "UP031", "ANN401", "TC001"] }
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "S101", "D100", "D103", "INP001", "PLC0415", "BLE001", "PGH003", "SLF001", 
+  "ARG001", "ARG005", "TRY003", "EM101", "N806", "TC002", "PT018", "PLR2004", 
+  "FBT001", "E501", "UP031", "ANN401", "TC001"
+]
+"src/**" = ["TC003"]
 
 [tool.isort]
 profile = "black"
@@ -29,7 +36,7 @@ profile = "black"
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-q"
-testpaths = ["tests"]
+testpaths = ["src"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -38,6 +45,7 @@ ignore_missing_imports = false
 warn_unused_configs = true
 pretty = true
 show_error_codes = true
+mypy_path = "src"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"

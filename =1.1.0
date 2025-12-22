@@ -1,0 +1,8 @@
+Collecting pyright
+  Downloading pyright-1.1.407-py3-none-any.whl.metadata (6.6 kB)
+Requirement already satisfied: nodeenv>=1.6.0 in ./.venv/lib/python3.12/site-packages (from pyright) (1.9.1)
+Requirement already satisfied: typing-extensions>=4.1 in ./.venv/lib/python3.12/site-packages (from pyright) (4.15.0)
+Downloading pyright-1.1.407-py3-none-any.whl (6.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.0/6.0 MB 16.0 MB/s  0:00:00
+Installing collected packages: pyright
+Successfully installed pyright-1.1.407

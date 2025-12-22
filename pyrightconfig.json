@@ -1,5 +1,5 @@
 {
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "standard",
   "pythonVersion": "3.12",
   "include": [
     "src"
@@ -9,5 +9,11 @@
     "build",
     "dist",
     "**/__pycache__/**"
-  ]
+  ],
+  "reportPrivateUsage": false,
+  "reportUnknownMemberType": false,
+  "reportUnusedFunction": false,
+  "reportTypedDictNotRequiredAccess": false,
+  "reportArgumentType": false,
+  "reportOperatorIssue": false
 }

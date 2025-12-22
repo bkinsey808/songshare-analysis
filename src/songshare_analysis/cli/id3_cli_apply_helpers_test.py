@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import songshare_analysis.id3_cli_apply as id3_apply
-import songshare_analysis.id3_cli_print as id3_print
+import songshare_analysis.cli.id3_cli_apply as id3_apply
+import songshare_analysis.cli.id3_cli_print as id3_print
 import songshare_analysis.id3_cover as id3mod
 
 
@@ -86,6 +86,7 @@ def test_maybe_embed_cover_calls_embed_and_handles_results(
     monkeypatch.setattr(id3mod, "_embed_cover_if_needed", lambda p, u: False)
     res = id3_apply._maybe_embed_cover(Path("foo.mp3"), args, mb_info, logger)
     assert res is False
+    assert res is False
     assert any(
         "Cover art embedding failed; skipping metadata apply for this file."
         in r.getMessage()
@@ -98,7 +99,7 @@ def test_apply_metadata_safe_logs_on_exception(monkeypatch: pytest.MonkeyPatch) 
     def fake_apply(path: Path, proposed: dict[str, str]) -> None:
         raise RuntimeError("boom")
 
-    import songshare_analysis.id3_cli_apply as id3_apply
+    import songshare_analysis.cli.id3_cli_apply as id3_apply
 
     monkeypatch.setattr(id3_apply, "apply_metadata", fake_apply)
 
