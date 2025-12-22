@@ -5,34 +5,57 @@ Contains: read_id3, _read_id3_only, apply_metadata, backups, and write helpers.
 
 from __future__ import annotations
 
+import contextlib
+import json
+import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    # Keep type-only imports grouped and sorted for readability
+    from mutagen import File as MutagenFile  # type: ignore
+    from mutagen.id3 import ID3
+    from mutagen.id3._frames import TALB, TCON, TIT2, TPE1, TXXX
+
+    # Import shared types used for typing across modules
+    from .types import ID3Like, ID3ReadResult
+else:
+    try:
+        from mutagen import File as MutagenFile  # type: ignore[import]
+    except ImportError:  # pragma: no cover - runtime dependency
+        MutagenFile = None  # type: ignore[assignment]
+
+
+# `ID3ReadResult` is defined in `songshare_analysis.types` and imported
+# under TYPE_CHECKING above. See `types.py` for the authoritative shape.
 
 if TYPE_CHECKING:
     from mutagen import File as MutagenFile  # type: ignore
 else:
     try:
         from mutagen import File as MutagenFile  # type: ignore[import]
-    except Exception:  # pragma: no cover - runtime dependency
+    except ImportError:  # pragma: no cover - runtime dependency
         MutagenFile = None  # type: ignore[assignment]
 
 
-def read_id3(path: Path) -> Dict[str, Any]:
+def read_id3(path: Path) -> ID3ReadResult:
     """Read tags and basic metadata from ``path`` using Mutagen.
 
-    Returns a dict with keys ``path``, ``tags`` (mapping of frame key -> str),
-    and ``info`` (length/bitrate/sample_rate when available).
+    Returns an :class:`ID3ReadResult` TypedDict with keys ``path``, ``tags``,
+    and ``info``.
     """
     if MutagenFile is None:
-        raise RuntimeError(
-            "mutagen is required to read ID3 tags. Install with `pip install mutagen`"
+        msg = (
+            "mutagen is required to read ID3 tags. "
+            "Install with `pip install mutagen`"
         )
+        raise RuntimeError(msg)
 
-    result: Dict[str, Any] = {"path": str(path), "tags": {}, "info": {}}
+    result: ID3ReadResult = {"path": str(path), "tags": {}, "info": {}}
 
     try:
         audio = MutagenFile(str(path))
-    except Exception:
+    except Exception:  # noqa: BLE001
         audio = None
 
     if audio is None:
@@ -45,7 +68,7 @@ def read_id3(path: Path) -> Dict[str, Any]:
             except Exception:
                 result["tags"][str(k)] = repr(v)
 
-    info: Dict[str, Any] = {}
+    info: dict[str, Any] = {}
     if getattr(audio, "info", None):
         info["length"] = getattr(audio.info, "length", None)
         info["bitrate"] = getattr(audio.info, "bitrate", None)
@@ -55,23 +78,28 @@ def read_id3(path: Path) -> Dict[str, Any]:
     return result
 
 
-def _read_id3_only(path: Path) -> Dict[str, Any]:
-    import importlib
+def _read_id3_only(path: Path) -> ID3ReadResult:
+    import importlib  # noqa: PLC0415 (dynamic import to avoid runtime dependency at module import time)
 
-    result: Dict[str, Any] = {"path": str(path), "tags": {}, "info": {}}
+    result: ID3ReadResult = {"path": str(path), "tags": {}, "info": {}}
 
     try:
         id3_mod = importlib.import_module("mutagen.id3")
-    except Exception as exc:  # pragma: no cover - runtime dependency
-        raise RuntimeError("mutagen.id3 is required to read ID3-only files") from exc
+    except ImportError as exc:  # pragma: no cover - runtime dependency
+        msg = "mutagen.id3 is required to read ID3-only files"
+        raise RuntimeError(msg) from exc
 
-    ID3_ctor: Any = id3_mod.ID3
-    id3 = ID3_ctor(str(path))
+    id3_ctor: type[ID3] = id3_mod.ID3
+    # Mutagen's constructor returns an untyped object; cast it to the
+    # Protocol close to the boundary where the untyped value enters our
+    # codebase so the rest of the function can rely on the documented
+    # `ID3Like` interface and avoid `Any` sprinkled everywhere.
+    id3 = cast("ID3Like", id3_ctor(str(path)))
 
     for k, v in id3.items():
         try:
             result["tags"][str(k)] = str(v)
-        except Exception:
+        except Exception:  # noqa: BLE001
             result["tags"][str(k)] = repr(v)
 
     result["info"] = {}
@@ -83,9 +111,14 @@ def _read_id3_only(path: Path) -> Dict[str, Any]:
 
 def apply_metadata(
     path: Path,
-    proposed: Dict[str, str],
+    proposed: dict[str, str],
+    *,
     make_backup: bool = True,
 ) -> None:
+    """Apply proposed metadata to the file at ``path``.
+
+    Optionally creates a backup when ``make_backup`` is True.
+    """
     if not proposed:
         return
 
@@ -100,61 +133,59 @@ def apply_metadata(
 
 
 def _backup_tags(path: Path) -> None:
-    import json
-
     bak = path.with_suffix(path.suffix + ".tags.bak.json")
     try:
         orig = read_id3(path)
-    except Exception:
+    except Exception:  # noqa: BLE001
         orig = {"path": str(path), "tags": {}, "info": {}}
 
+    with contextlib.suppress(Exception), bak.open("w", encoding="utf8") as f:
+        json.dump(orig, f, indent=2)
+
+
+def _write_mp3_tags(path: Path, proposed: dict[str, str]) -> None:
     try:
-        with open(bak, "w", encoding="utf8") as f:
-            json.dump(orig, f, indent=2)
-    except Exception:
-        pass
+        from mutagen.id3 import ID3  # noqa: PLC0415
+        from mutagen.id3._frames import TALB, TCON, TIT2, TPE1, TXXX  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - runtime dependency
+        msg = "mutagen.id3 required to write tags"
+        raise RuntimeError(msg) from exc
 
-
-def _write_mp3_tags(path: Path, proposed: Dict[str, str]) -> None:
-    try:
-        from mutagen.id3 import ID3
-        from mutagen.id3._frames import TALB, TCON, TIT2, TPE1, TXXX
-    except Exception as exc:  # pragma: no cover - runtime dependency
-        raise RuntimeError("mutagen.id3 required to write tags") from exc
-
-    ID3_ctor: Any = ID3
-    TIT2_ctor: Any = TIT2
-    TPE1_ctor: Any = TPE1
-    TALB_ctor: Any = TALB
-    TCON_ctor: Any = TCON
-    TXXX_ctor: Any = TXXX
+    id3_ctor: type[ID3] = ID3
+    tit2_ctor: type[TIT2] = TIT2
+    tpe1_ctor: type[TPE1] = TPE1
+    talb_ctor: type[TALB] = TALB
+    tcon_ctor: type[TCON] = TCON
+    txxx_ctor: type[TXXX] = TXXX
 
     try:
-        tags = ID3_ctor(str(path))
-    except Exception:
-        tags = ID3_ctor()
+        # Cast the untyped runtime object to ID3Like for better static
+        # checking in downstream helpers (e.g. _add_common_mp3_frames).
+        tags = cast("ID3Like", id3_ctor(str(path)))
+    except Exception:  # noqa: BLE001
+        tags = cast("ID3Like", id3_ctor())
 
-    _add_common_mp3_frames(tags, proposed, TIT2_ctor, TPE1_ctor, TALB_ctor, TCON_ctor)
-    _add_txxx_frames(tags, proposed, TXXX_ctor)
+    _add_common_mp3_frames(tags, proposed, tit2_ctor, tpe1_ctor, talb_ctor, tcon_ctor)
+    _add_txxx_frames(tags, proposed, txxx_ctor)
     _save_tags_with_fallback(tags, path)
 
 
 def _add_common_mp3_frames(
-    tags: Any,
-    proposed: Dict[str, str],
-    TIT2_ctor: Any,
-    TPE1_ctor: Any,
-    TALB_ctor: Any,
-    TCON_ctor: Any,
-) -> None:
+    tags: ID3Like,
+    proposed: dict[str, str],
+    tit2_ctor: type[TIT2],
+    tpe1_ctor: type[TPE1],
+    talb_ctor: type[TALB],
+    tcon_ctor: type[TCON],
+) -> None:  # noqa: PLR0913 (function intentionally accepts multiple ctor types)
     def _has_value(frame_key: str) -> bool:
         try:
             existing = tags.get(frame_key)
             return bool(existing) and bool(str(existing).strip())
-        except Exception:
+        except Exception:  # noqa: BLE001
             return False
 
-    def _maybe_add_or_propose(frame_key: str, ctor: Any) -> None:
+    def _maybe_add_or_propose(frame_key: str, ctor: type[object]) -> None:
         if not proposed.get(frame_key):
             return
         if _has_value(frame_key):
@@ -162,7 +193,7 @@ def _add_common_mp3_frames(
             # there is nothing to do (no need to create a TXXX proposed frame).
             try:
                 existing = str(tags.get(frame_key))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 existing = ""
             if str(existing).strip() == str(proposed[frame_key]).strip():
                 return
@@ -171,37 +202,82 @@ def _add_common_mp3_frames(
         ctor_args = {"encoding": 3, "text": [proposed[frame_key]]}
         tags.add(ctor(**ctor_args))
 
-    _maybe_add_or_propose("TIT2", TIT2_ctor)
-    _maybe_add_or_propose("TPE1", TPE1_ctor)
-    _maybe_add_or_propose("TALB", TALB_ctor)
-    _maybe_add_or_propose("TCON", TCON_ctor)
+    _maybe_add_or_propose("TIT2", tit2_ctor)
+    _maybe_add_or_propose("TPE1", tpe1_ctor)
+    _maybe_add_or_propose("TALB", talb_ctor)
+    _maybe_add_or_propose("TCON", tcon_ctor)
 
 
-def _add_txxx_frames(tags: Any, proposed: Dict[str, str], TXXX_ctor: Any) -> None:
+def _add_txxx_frames(
+    tags: ID3Like,
+    proposed: dict[str, str],
+    txxx_ctor: type[TXXX],
+) -> None:
     for k, v in proposed.items():
         if k.startswith("TXXX:"):
             desc = k.split("TXXX:", 1)[1]
-            tags.add(TXXX_ctor(encoding=3, desc=desc, text=[v]))
+            tags.add(txxx_ctor(encoding=3, desc=desc, text=[v]))
 
 
-def _save_tags_with_fallback(tags: Any, path: Path) -> None:
+def _save_tags_with_fallback(tags: ID3Like, path: Path) -> None:
+    """Save tags reliably and attempt to flush to disk so writes are visible
+    on unusual filesystems (WSL/NTFS mounts, network filesystems, etc).
+
+    We prefer in-place writes using Mutagen's API, but explicitly fsync the
+    file descriptor after writing and perform a best-effort os.sync() to
+    reduce the chance of silent write failures on WSL. If both primary and
+    fallback methods fail we raise a clear RuntimeError.
+    """
+    # Mutagen can save either by path or by file-object. Try the simple path
+    # save first, then ensure the data is flushed to disk with fsync/os.sync.
     try:
         if path.exists() and path.stat().st_size == 0:
-            with open(str(path), "wb") as f:
+            with path.open("wb") as f:
                 f.write(b"\x00" * 128)
         tags.save(str(path))
-    except Exception:
+
+        # Best-effort: open and fsync to ensure data hits the device.
         try:
-            with open(str(path), "r+b") as f:
+            with path.open("r+b") as f:
+                f.flush()
+                os.fsync(f.fileno())
+            try:
+                # Global sync may help on some kernel/filesystem combinations
+                os.sync()
+            except Exception:
+                # Ignore os.sync failures; fsync above is the more important step.
+                pass
+        except Exception:
+            # If we can't open/fsync the file, continue to fallback behaviour.
+            pass
+
+        return
+    except Exception:  # noqa: BLE001
+        # Fallback to writing via an open file object (in-place).
+        try:
+            with path.open("r+b") as f:
                 tags.save(f)
+                try:
+                    f.flush()
+                    os.fsync(f.fileno())
+                    try:
+                        os.sync()
+                    except Exception:
+                        pass
+                except Exception:
+                    # If fsync fails here, fall through to the outer exception.
+                    pass
+            return
         except Exception as exc:  # pragma: no cover - runtime
-            raise RuntimeError("Failed to write ID3 tags") from exc
+            msg = "Failed to write ID3 tags"
+            raise RuntimeError(msg) from exc
 
 
-def _write_generic_tags(path: Path, proposed: Dict[str, str]) -> None:
+def _write_generic_tags(path: Path, proposed: dict[str, str]) -> None:
     audio = MutagenFile(str(path))
     if audio is None:
-        raise RuntimeError("Unsupported file format for writing tags")
+        msg = "Unsupported file format for writing tags"
+        raise RuntimeError(msg)
 
     if getattr(audio, "tags", None) is None:
         audio.add_tags()
@@ -211,7 +287,7 @@ def _write_generic_tags(path: Path, proposed: Dict[str, str]) -> None:
             return
         try:
             existing = audio.tags.get(key)
-        except Exception:
+        except Exception:  # noqa: BLE001
             existing = None
         if existing and bool(str(existing).strip()):
             audio.tags["TXXX:musicbrainz_proposed_" + key] = proposed[key]
@@ -223,8 +299,7 @@ def _write_generic_tags(path: Path, proposed: Dict[str, str]) -> None:
     _maybe_set_or_propose("TALB")
 
     for k, v in proposed.items():
-        if k.startswith("TXXX:"):
-            if not audio.tags.get(k):
-                audio.tags[k] = v
+        if k.startswith("TXXX:") and not audio.tags.get(k):
+            audio.tags[k] = v
 
     audio.save()

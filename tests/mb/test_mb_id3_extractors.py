@@ -1,6 +1,6 @@
 from typing import Any
 
-from songshare_analysis.id3_mb import _mb_extract_fields
+from songshare_analysis.mb.extractors import _mb_extract_fields
 
 
 def test_mb_extract_fields_all() -> None:
@@ -16,8 +16,8 @@ def test_mb_extract_fields_all() -> None:
                     "name": "Artist A",
                     "life-span": {"begin": "1970-01-01", "ended": False},
                     "relations": [{"type": "member", "target": "group-1"}],
-                }
-            }
+                },
+            },
         ],
         "tag-list": [{"name": "folk"}],
         "user-tag-list": [{"name": "lovely"}],
@@ -36,7 +36,7 @@ def test_mb_extract_fields_all() -> None:
                 "label-info-list": [{"label": {"name": "LabelName"}}],
                 "relation-list": [{"url": {"resource": "https://release.example.com"}}],
                 "medium-list": [{"format": "CD", "position": 1, "track-count": 10}],
-            }
+            },
         ],
     }
     candidate = {"score": 95}
@@ -79,8 +79,8 @@ def test_mb_extract_fields_ratings_and_external_ids() -> None:
                 "artist": {
                     "id": "art-2",
                     "external-ids": [{"type": "discogs", "value": "123"}],
-                }
-            }
+                },
+            },
         ],
         "external-ids": [{"type": "spotify", "value": "spotify:123"}],
         "work-list": [{"id": "work-42", "title": "Work X", "iswc": "T-000.000.000-0"}],

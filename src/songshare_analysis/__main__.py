@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-from typing import Sequence
+from collections.abc import Sequence
+from typing import cast
 
 from .core import dataframe_summary, sample_dataframe
 
@@ -24,12 +25,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print a small summary of plays instead of the full table",
     )
     parser.add_argument(
-        "--csv", action="store_true", help="Output CSV instead of a table"
+        "--csv",
+        action="store_true",
+        help="Output CSV instead of a table",
     )
 
     # id3 subcommand: read tags from a file and print them
     id3_parser = subparsers.add_parser(
-        "id3", help="Read ID3 tags from a file or directory"
+        "id3",
+        help="Read ID3 tags from a file or directory",
     )
     id3_parser.add_argument(
         "path",
@@ -45,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--fetch-metadata",
         action="store_true",
         help=(
-            "Fetch metadata from MusicBrainz based on tags " "(requires musicbrainzngs)"
+            "Fetch metadata from MusicBrainz based on tags (requires musicbrainzngs)"
         ),
     )
     id3_parser.add_argument(
@@ -108,9 +112,11 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     # Handle subcommands
     if args.command == "id3":
-        from .id3_cli_process import handle_id3_command
+        from .id3_cli_process import ProcessArgs, handle_id3_command
 
-        handle_id3_command(args, logger)
+        # Cast the parsed Namespace to the typed ProcessArgs protocol so the
+        # static type checker recognizes the expected attributes.
+        handle_id3_command(cast("ProcessArgs", args), logger)
         return
 
     if args.csv:

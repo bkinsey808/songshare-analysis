@@ -1,16 +1,18 @@
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from songshare_analysis import id3_io as id3io
-from songshare_analysis import id3_mb as id3mb
+from songshare_analysis import mb as id3mb
 from songshare_analysis.__main__ import main
+from songshare_analysis.types import MBInfo
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Works on POSIX in CI")
-def test_apply_metadata_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_metadata_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     # Create an empty mp3 file
     p = tmp_path / "apply_test.mp3"
     p.write_bytes(b"")
@@ -27,7 +29,7 @@ def test_apply_metadata_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         pytest.skip("mutagen not available or couldn't write test tags")
 
     # Monkeypatch musicbrainz_lookup to avoid network
-    def fake_mb(_tags: dict[str, Any]) -> dict[str, Any]:
+    def fake_mb(_tags: dict[str, str]) -> MBInfo:
         return {
             "recording_id": "rec-42",
             "recording_title": "Test Song",
@@ -41,6 +43,11 @@ def test_apply_metadata_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
     # Run CLI to fetch + apply with auto-yes
     main(["id3", "--fetch-metadata", "--apply-metadata", "--yes", str(p)])
+
+    # CLI should print a short confirmation to stdout
+    out = capsys.readouterr().out
+    assert f"File: {p}" in out
+    assert "Applied metadata to" in out
 
     # Read tags and assert written. Since the file had an existing title, it
     # should be preserved and the proposed value recorded in a TXXX frame.
@@ -56,20 +63,18 @@ def test_apply_metadata_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Works on POSIX in CI")
 def test_apply_metadata_cli_writes_when_absent(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Create an empty mp3 file without a title
     p = tmp_path / "apply_test_no_title.mp3"
     # Ensure file has some space so Mutagen can write ID3 headers reliably
     p.write_bytes(b"\x00" * 128)
 
-    try:
-        _mutagen_id3 = __import__("mutagen.id3")
-    except Exception:
-        pytest.skip("mutagen not available")
+    pytest.importorskip("mutagen.id3")
 
     # Monkeypatch musicbrainz_lookup to avoid network
-    def fake_mb(_tags: dict[str, Any]) -> dict[str, Any]:
+    def fake_mb(_tags: dict[str, str]) -> MBInfo:
         return {
             "recording_id": "rec-99",
             "recording_title": "Fresh Song",

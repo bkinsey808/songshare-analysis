@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from logging import Logger
+
+from .types import ID3ReadResult, MBInfo, TagValue
 
 
 def _print_basic_info(
-    info: dict[str, Any], logger: Any, verbose: bool = False
-) -> dict[str, Any]:
+    info: ID3ReadResult,
+    logger: Logger,
+    verbose: bool = False,
+) -> dict[str, TagValue]:
     """Log basic file metadata and tags at INFO when `verbose` is True.
 
     Returns the tags dict.
     """
-
     if not verbose:
         return info.get("tags", {}) or {}
 
@@ -44,16 +48,23 @@ def _print_basic_info(
 
 
 def _fetch_and_print_musicbrainz(
-    tags: dict[str, Any], logger: Any, verbose: bool = False
-) -> dict[str, Any] | None:
+    tags: dict[str, TagValue],
+    logger: Logger,
+    verbose: bool = False,
+) -> MBInfo | None:
     """Fetch metadata from MusicBrainz and print results.
 
     Returns mb_info or None on error.
     """
-    from .id3_mb import musicbrainz_lookup
+    from .mb import musicbrainz_lookup
 
+    # musicbrainz_lookup expects a mapping of str->str; coerce/filter values
+    # to strings to avoid passing binary/list values through.
     try:
-        mb_info = musicbrainz_lookup(tags)
+        tags_str: dict[str, str] = {
+            k: str(v) for k, v in tags.items() if isinstance(v, str)
+        }
+        mb_info = musicbrainz_lookup(tags_str)
         if not verbose:
             return mb_info
 
@@ -72,12 +83,12 @@ def _fetch_and_print_musicbrainz(
             logger.info("MusicBrainz: no matches found")
 
         return mb_info
-    except Exception as exc:  # pragma: no cover - network/runtime
-        logger.error("MusicBrainz lookup failed: %s", exc)
+    except Exception:  # pragma: no cover - network/runtime
+        logger.exception("MusicBrainz lookup failed")
         return None
 
 
-def _should_skip_mb_fetch(tags: dict[str, Any]) -> bool:
+def _should_skip_mb_fetch(tags: dict[str, TagValue]) -> bool:
     """Return True if we can skip MusicBrainz fetch because tags/IDs are present.
 
     We consider the core tags to be TIT2 (title), TPE1 (artist), and TALB (album).
@@ -91,25 +102,24 @@ def _should_skip_mb_fetch(tags: dict[str, Any]) -> bool:
         return True
     # Check MusicBrainz ID TXXX frames
     if tags.get("TXXX:musicbrainz_recording_id") or tags.get(
-        "TXXX:musicbrainz_release_id"
+        "TXXX:musicbrainz_release_id",
     ):
         return True
     return False
 
 
-def _print_proposed_metadata(proposed: dict[str, Any]) -> None:
+def _print_proposed_metadata(proposed: Mapping[str, object]) -> None:
     """Print proposed metadata in a consistent, truncated format.
 
     `proposed` is a mapping of tag keys to values; long values are truncated
     for readability and binary values are replaced with a placeholder.
     """
-
-    print("\nProposed metadata:")
+    print("\nProposed metadata:")  # noqa: T201
     for k, v in proposed.items():
         if isinstance(v, (bytes, bytearray)):
-            print(f"  {k}: <binary data {len(v)} bytes>")
+            print(f"  {k}: <binary data {len(v)} bytes>")  # noqa: T201
             continue
         s = str(v)
         if len(s) > 200:
             s = s[:197] + "..."
-        print(f"  {k}: {s}")
+        print(f"  {k}: {s}")  # noqa: T201

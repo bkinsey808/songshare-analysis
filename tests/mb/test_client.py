@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from songshare_analysis.id3_mb import musicbrainz_lookup
+from songshare_analysis.mb.client import musicbrainz_lookup
 
 
 class FakeMB:
@@ -18,8 +18,8 @@ class FakeMB:
         if kwargs.get("recording") and "Om" in kwargs["recording"]:
             return {
                 "recording-list": [
-                    {"id": "rec-1", "title": kwargs["recording"], "score": 95}
-                ]
+                    {"id": "rec-1", "title": kwargs["recording"], "score": 95},
+                ],
             }
         return {"recording-list": []}
 
@@ -30,7 +30,7 @@ class FakeMB:
                 "title": "Om Nama Shivaya",
                 "artist-credit": [{"name": "Raphael"}],
                 "release-list": [{"id": "rel-1", "title": "Soundcloud"}],
-            }
+            },
         }
 
 

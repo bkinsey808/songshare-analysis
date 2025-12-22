@@ -1,20 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from logging import Logger
 from pathlib import Path
-from typing import Any
 
 from .id3_cli_print import _print_proposed_metadata
 from .id3_io import apply_metadata
-from .id3_mb import propose_metadata_from_mb
+from .mb import propose_metadata_from_mb
+from .types import Args, ErrorLoggerLike, LoggerLike, MBInfo, TagValue
 
 
-def _confirm_apply(args: Any) -> bool:
+def _confirm_apply(args: Args) -> bool:
     """Return True if the operation should proceed (handles -y/--yes).
 
     Returns True immediately when `args.yes` is truthy; otherwise prompts the
     user with a yes/no question and returns True only on an explicit yes.
     """
-
     if getattr(args, "yes", False):
         return True
     ans = input("Apply these changes? [y/N] ")
@@ -22,7 +23,10 @@ def _confirm_apply(args: Any) -> bool:
 
 
 def _maybe_embed_cover(
-    target_path: Path, args: Any, mb_info: dict[str, Any], logger: Any
+    target_path: Path,
+    args: Args,
+    mb_info: MBInfo | Mapping[str, object],
+    logger: Logger | LoggerLike | None,
 ) -> bool | None:
     """Try embedding cover art if requested. Returns True/None/False as docs describe.
 
@@ -30,7 +34,6 @@ def _maybe_embed_cover(
     - None: skipped (non-MP3 or already present or no URL)
     - False: embedding failed (caller should abort apply)
     """
-
     if not getattr(args, "embed_cover_art", False):
         return None
 
@@ -44,45 +47,173 @@ def _maybe_embed_cover(
     try:
         res = _embed_cover_if_needed(target_path, cover_url)
         if res is True:
-            logger.info("Cover art embedded for %s", target_path)
+            if logger:
+                logger.info("Cover art embedded for %s", target_path)
         elif res is False:
             # Visible warning when embedding explicitly failed
-            logger.warning(
-                "Cover art embedding failed; skipping metadata apply for this file."
-            )
+            if logger:
+                msg = (
+                    "Cover art embedding failed; "
+                    "skipping metadata apply for this file."
+                )
+                logger.warning(msg)
         return res
     except Exception:  # pragma: no cover - runtime/network
-        logger.warning(
-            "Cover art embedding failed; skipping metadata apply for this file."
-        )
+        if logger:
+            msg = (
+                "Cover art embedding failed; " "skipping metadata apply for this file."
+            )
+            logger.warning(msg)
         return False
 
 
 def _apply_metadata_safe(
-    target_path: Path, proposed: dict[str, Any], logger: Any
+    target_path: Path,
+    proposed: dict[str, str],
+    logger: Logger | ErrorLoggerLike,
 ) -> bool:
     """Apply metadata and log any unexpected exceptions.
 
     Returns True on successful apply, False on failure. On success this logs a
     short confirmation at INFO; on failure it logs an error and returns False.
     """
-
     try:
         apply_metadata(target_path, proposed)
-        logger.info("Metadata applied (backup created).")
+        if isinstance(logger, Logger):
+            logger.info("Metadata applied (backup created).")
         return True
     except Exception as exc:  # pragma: no cover - runtime
         logger.error("Failed to apply metadata: %s", exc)
         return False
 
 
+def _prepare_embed(
+    args: Args,
+    mb_info: MBInfo | Mapping[str, object],
+    existing_tags: Mapping[str, TagValue] | None = None,
+) -> tuple[str | None, bool, bool, bytes | None]:
+    """Determine embed request/would-write and attempt a short download.
+
+    Returns (cover_url, embed_requested, embed_would_write, cover_bytes).
+    """
+    cover_url = mb_info.get("cover_art")
+    # Narrow to the expected str|None so return types are consistent
+    if not isinstance(cover_url, str):
+        cover_url = None
+    embed_requested = bool(getattr(args, "embed_cover_art", False))
+    embed_would_write = False
+    cover_bytes: bytes | None = None
+
+    if not (embed_requested and cover_url):
+        return cover_url, embed_requested, embed_would_write, cover_bytes
+
+    existing = existing_tags or {}
+    if any(k.startswith("APIC") for k in existing.keys()) or any(
+        isinstance(v, (bytes, bytearray)) for v in existing.values()
+    ):
+        return cover_url, embed_requested, False, None
+
+    try:
+        from .id3_cover import _download_cover_art
+
+        cover_bytes = _download_cover_art(str(cover_url), timeout=5)
+        embed_would_write = True
+    except Exception:
+        cover_bytes = None
+        embed_would_write = False
+
+    return cover_url, embed_requested, embed_would_write, cover_bytes
+
+
+def _compute_delta(
+    proposed: dict[str, str],
+    existing_tags: Mapping[str, TagValue] | None = None,
+) -> dict[str, TagValue]:
+    """Return the subset of `proposed` that would actually change the file."""
+    delta: dict[str, TagValue] = {}
+    existing = existing_tags or {}
+
+    for k, v in proposed.items():
+        if k.startswith("TXXX:"):
+            existing_val = existing.get(k)
+            if existing_val is None or str(existing_val).strip() != str(v).strip():
+                delta[k] = v
+            continue
+
+        existing_core = existing.get(k)
+        if not existing_core:
+            delta[k] = v
+            continue
+
+        if str(existing_core).strip() == str(v).strip():
+            continue
+
+        proposed_key = "TXXX:musicbrainz_proposed_" + k
+        existing_proposed = existing.get(proposed_key)
+        if (
+            existing_proposed is None
+            or str(existing_proposed).strip() != str(v).strip()
+        ):
+            delta[proposed_key] = v
+
+    return delta
+
+
+def _print_embed_preview(cover_url: str | bytes | None) -> None:
+    """Print a short human-friendly preview for an embed."""
+    if isinstance(cover_url, (bytes, bytearray)):
+        print(f"  Will embed cover art: <binary data {len(cover_url)} bytes>")
+        return
+
+    s = str(cover_url)
+    if len(s) > 200:
+        s = s[:197] + "..."
+    print(f"  Will embed cover art: {s}")
+
+
+def _perform_embed(
+    target_path: Path,
+    args: Args,
+    logger: Logger | LoggerLike | None,
+    mb_info: MBInfo | Mapping[str, object],
+    cover_bytes: bytes | None,
+    _cover_url: str | bytes | None,
+) -> bool | None:
+    """Attempt to perform embed and return the same semantics as _maybe_embed_cover.
+
+    If `cover_bytes` is present we'll embed directly; otherwise fall back to
+    `_maybe_embed_cover` which handles MP3/non-MP3 detection.
+    """
+    if not bool(getattr(args, "embed_cover_art", False)):
+        return None
+
+    if cover_bytes is not None:
+        try:
+            from .id3_cover import _embed_cover_mp3
+
+            _embed_cover_mp3(target_path, cover_bytes)
+            if logger:
+                logger.info("Cover art embedded for %s", target_path)
+            return True
+        except Exception:  # pragma: no cover - runtime/network
+            if logger:
+                msg = (
+                    "Cover art embedding failed; "
+                    "skipping metadata apply for this file."
+                )
+                logger.warning(msg)  # noqa: E501
+            return False
+
+    return _maybe_embed_cover(target_path, args, mb_info, logger)
+
+
 def _maybe_propose_and_apply(
     target_path: Path,
-    args: Any,
-    logger: Any,
-    mb_info: dict[str, Any],
-    existing_tags: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+    args: Args,
+    logger: Logger | LoggerLike,
+    mb_info: MBInfo | Mapping[str, object],
+    existing_tags: Mapping[str, TagValue] | None = None,
+) -> dict[str, bool | None]:  # noqa: PLR0911 (multiple early returns for clarity)
     """Propose metadata derived from MusicBrainz info and optionally apply it to a path.
 
     Only print a preview if the proposed metadata would actually add or change
@@ -95,132 +226,196 @@ def _maybe_propose_and_apply(
     result = {"applied": False, "embed": None}
 
     apply_flag = getattr(args, "apply_metadata", False) or getattr(
-        args, "apply-metadata", False
+        args,
+        "apply-metadata",
+        False,
     )
     if not apply_flag:
         return result
 
     proposed = propose_metadata_from_mb(mb_info)
 
-    # Determine whether embedding will be attempted and whether it would change
-    # the file (no-op when art already embedded). Try a download first so we can
-    # suppress a cover-embed proposal if the image cannot be fetched.
-    cover_url = mb_info.get("cover_art")
-    embed_requested = bool(getattr(args, "embed_cover_art", False))
-    embed_would_write = False
-    cover_bytes: bytes | None = None
-    if embed_requested and cover_url:
-        existing = existing_tags or {}
-        # If any existing tag looks like embedded binary/art, consider it present
-        if any(k.startswith("APIC") for k in existing.keys()) or any(
-            isinstance(v, (bytes, bytearray)) for v in existing.values()
-        ):
-            embed_would_write = False
-        else:
-            # Try to download the image so that we only show a proposal if the
-            # download is likely to succeed. If download fails, don't show embed
-            # proposal.
-            try:
-                from .id3_cover import _download_cover_art
+    cover_url, _embed_requested, embed_would_write, cover_bytes = _prepare_embed(
+        args,
+        mb_info,
+        existing_tags,
+    )
 
-                # Attempt a short download; allow test to monkeypatch this
-                cover_bytes = _download_cover_art(str(cover_url), timeout=5)
-                embed_would_write = True
-            except Exception:
-                # Download failed; do not propose an embed
-                embed_would_write = False
-                cover_bytes = None
-
-    # If there's no proposed metadata AND no embed to perform, nothing to do.
     if not proposed and not embed_would_write:
         logger.info("No proposed metadata to apply")
         return result
 
-    # Compute the delta between proposed metadata and what's already present
-    # We want to show only keys that would actually result in a write.
-    delta: dict[str, object] = {}
-    existing = existing_tags or {}
+    # Capture a snapshot of existing tags so we can report what changed later.
+    before_tags = existing_tags
+    if before_tags is None:
+        try:
+            from .id3_io import read_id3
 
-    for k, v in proposed.items():
-        # TXXX keys are written directly; if identical value already present, no write.
-        if k.startswith("TXXX:"):
-            existing_val = existing.get(k)
-            if existing_val is None or str(existing_val).strip() != str(v).strip():
-                delta[k] = v
-            continue
+            before_tags = read_id3(target_path).get("tags", {}) or {}
+        except Exception:
+            before_tags = {}
 
-        # For core frames (TIT2/TPE1/TALB): if empty, we'll write the core frame.
-        existing_core = existing.get(k)
-        if not existing_core:
-            delta[k] = v
-            continue
+    delta = _compute_delta(proposed, existing_tags)
 
-        # If the existing core value already matches the proposed value, no write
-        # will be necessary (and we should not create a TXXX proposed frame).
-        if str(existing_core).strip() == str(v).strip():
-            continue
-
-        # Core exists but differs; apply will add/update a
-        # TXXX:musicbrainz_proposed_<FRAME>
-        proposed_key = "TXXX:musicbrainz_proposed_" + k
-        existing_proposed = existing.get(proposed_key)
-        if (
-            existing_proposed is None
-            or str(existing_proposed).strip() != str(v).strip()
-        ):
-            # The actual write will be to the TXXX proposed key; show that instead
-            delta[proposed_key] = v
-
-    # If there are no metadata changes and no embed to write, nothing to do.
     if not delta and not embed_would_write:
         logger.info("No proposed metadata to apply")
         return result
 
-    # Print proposals (may be empty dict if only cover will be embedded)
+    # Print a short per-file header so users can see which file is being
+    # proposed/changed when running in batch mode.
+    print(f"File: {target_path}")  # noqa: T201
+
     _print_proposed_metadata(delta)
 
-    # If embedding will be performed, show that explicitly in the preview
     if embed_would_write:
-        if isinstance(cover_url, (bytes, bytearray)):
-            print(f"  Will embed cover art: <binary data {len(cover_url)} bytes>")
-        else:
-            s = str(cover_url)
-            if len(s) > 200:
-                s = s[:197] + "..."
-            print(f"  Will embed cover art: {s}")
+        _print_embed_preview(cover_url if cover_bytes is None else cover_bytes)
 
     if not _confirm_apply(args):
-        print("Aborted; no changes made.")
+        # Intentional CLI behaviour (print to stdout) — keep for backward compatibility
+        print("Aborted; no changes made.")  # noqa: T201
         return result
 
-    # Attempt embed (if requested); if embedding fails we skip apply
-    if embed_requested:
-        if cover_bytes is not None:
-            try:
-                from .id3_cover import _embed_cover_mp3
+    # Perform embed + apply flow in a helper to keep complexity low here.
+    return _perform_apply_and_report(
+        target_path,
+        args,
+        logger,
+        mb_info,
+        cover_bytes,
+        cover_url,
+        delta,
+        before_tags or {},
+        proposed,
+    )
 
-                _embed_cover_mp3(target_path, cover_bytes)
-                logger.info("Cover art embedded for %s", target_path)
-                result["embed"] = True
-            except Exception:
-                logger.warning(
-                    "Cover art embedding failed; skipping metadata apply for this file."
-                )
-                result["embed"] = False
-                return result
-        else:
-            embed_result = _maybe_embed_cover(target_path, args, mb_info, logger)
-            result["embed"] = embed_result
-            if embed_result is False:
-                return result
-    else:
-        result["embed"] = None
 
-    # Only perform a metadata apply if there are actual metadata changes to make
+def _perform_apply_and_report(
+    target_path: Path,
+    args: Args,
+    logger: Logger | LoggerLike,
+    mb_info: MBInfo | Mapping[str, object],
+    cover_bytes: bytes | None,
+    cover_url: str | bytes | None,
+    delta: dict[str, TagValue],
+    before_tags: Mapping[str, TagValue],
+    proposed: dict[str, str],
+) -> dict[str, bool | None]:
+    """Attempt embed, apply metadata, verify and print a per-file report.
+
+    Returns a result dict with keys ``applied`` and ``embed`` mirroring the
+    previous semantics from the larger function.
+    """
+    result = {"applied": False, "embed": None}
+
+    # Attempt embed first; abort apply on embed failure
+    embed_result = _perform_embed(
+        target_path,
+        args,
+        logger,
+        mb_info,
+        cover_bytes,
+        cover_url,
+    )
+    result["embed"] = embed_result
+    if embed_result is False:
+        return result
+
     if not delta:
-        # No metadata writes necessary (embed may have succeeded)
         return result
 
     applied_ok = _apply_metadata_safe(target_path, proposed, logger)
-    result["applied"] = bool(applied_ok)
+
+    if not applied_ok:
+        result["applied"] = False
+        return result
+
+    # Verify write by re-reading and checking for any remaining delta.
+    verified = _verify_apply_result(target_path, proposed, logger)
+    result["applied"] = bool(verified)
+
+    try:
+        from .id3_io import read_id3
+
+        new_info = read_id3(target_path)
+        new_tags = new_info.get("tags", {}) or {}
+    except Exception:
+        new_tags = {}
+
+    _print_apply_result(
+        target_path, delta, before_tags, new_tags, proposed, result["applied"]
+    )
+
     return result
+
+
+def _verify_apply_result(
+    target_path: Path,
+    proposed: dict[str, str],
+    logger: Logger | LoggerLike,
+) -> bool:
+    """Re-read tags and confirm the proposed mapping no longer yields a delta.
+
+    Returns True when the re-read indicates the file was updated to match the
+    proposals; otherwise logs a warning and returns False.
+    """
+    try:
+        from .id3_io import read_id3
+
+        new_info = read_id3(target_path)
+        new_tags = new_info.get("tags", {}) or {}
+    except Exception:  # pragma: no cover - defensive/read failure
+        if logger:
+            logger.warning(
+                "Re-read failed; write may not have succeeded for %s", target_path
+            )
+        return False
+
+    remaining = _compute_delta(proposed, new_tags)
+    if remaining:
+        if logger:
+            logger.warning(
+                "Apply reported success but tags unchanged for %s",
+                target_path,
+            )
+        return False
+
+    return True
+
+
+def _fmt_tag_value(val: object) -> str:
+    """Return a human-readable string for tag values (handle bytes)."""
+    try:
+        if isinstance(val, (bytes, bytearray)):
+            return val.decode("utf8", errors="backslashreplace")
+        return str(val)
+    except Exception:
+        return repr(val)
+
+
+def _print_apply_result(
+    target_path: Path,
+    delta: Mapping[str, object],
+    before_tags: Mapping[str, object],
+    new_tags: Mapping[str, object],
+    proposed: dict[str, str],
+    applied: bool | None,
+) -> None:
+    """Print a concise per-file report of which tags were applied.
+
+    - If ``applied`` is True, show each changed key with its old and new
+      values (falling back to the proposal when the new value isn't present).
+    - If ``applied`` is False, print a short message stating no changes were
+      applied.
+    """
+    if applied:
+        print(f"Applied metadata to {target_path}:")  # noqa: T201
+        for k in sorted(delta.keys()):
+            old = before_tags.get(k)
+            new = new_tags.get(k)
+            if new is None:
+                new = proposed.get(k)
+            old_s = _fmt_tag_value(old) if old is not None else "(was absent)"
+            new_s = _fmt_tag_value(new)
+            print(f"  {k}: {old_s} -> {new_s}")  # noqa: T201
+    else:
+        print(f"No changes applied to {target_path}")  # noqa: T201

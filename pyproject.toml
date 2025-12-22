@@ -18,8 +18,10 @@ target-version = ['py39']
 
 [tool.ruff]
 line-length = 88
+
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "C", "B", "PLW"]
+per-file-ignores = { "tests/**" = ["S101", "D100", "D103", "INP001", "PLC0415", "BLE001", "PGH003", "SLF001", "ARG001", "ARG005", "TRY003", "EM101", "N806", "TC002", "PT018", "PLR2004", "FBT001", "E501", "UP031", "ANN401", "TC001"] }
 
 [tool.isort]
 profile = "black"
@@ -48,7 +50,7 @@ black = "^24.3"
 ruff = "^0.14.9"
 isort = "^5.12"
 pre-commit = "^3.5"
-mypy = "^1.9"
+mypy = "1.19.1"
 # pandas-stubs removed due to Python 3.12 compatibility; add back when a compatible release exists
 pytest-cov = "^4.1"
 

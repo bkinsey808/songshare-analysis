@@ -5,7 +5,7 @@ This module provides a small example: generating a sample `pandas.DataFrame`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 import pandas as pd
 
@@ -20,7 +20,14 @@ def sample_dataframe() -> pd.DataFrame:
     return pd.DataFrame({"song": ["A", "B"], "plays": [10, 20]})
 
 
-def dataframe_summary(df: pd.DataFrame) -> dict[str, Any]:
+class DataframeSummary(TypedDict):
+    """Small typed dict describing the summary returned by `dataframe_summary`."""
+
+    rows: int
+    total_plays: int
+
+
+def dataframe_summary(df: pd.DataFrame) -> DataframeSummary:
     """Return a small summary of the dataframe's plays.
 
     This demonstrates accepting a typed parameter and returning a typed dict.

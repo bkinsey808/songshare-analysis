@@ -11,8 +11,6 @@ import songshare_analysis.id3_cli_apply as id3_apply
 import songshare_analysis.id3_cli_print as id3_print
 import songshare_analysis.id3_cover as id3mod
 
-# ruff: noqa: I001
-
 
 def test_print_proposed_metadata_truncation(capsys: pytest.CaptureFixture[str]) -> None:
     long_val = "x" * 500
@@ -46,7 +44,10 @@ def test_maybe_embed_cover_skips_when_not_requested() -> None:
     args = SimpleNamespace(embed_cover_art=False)
     assert (
         id3_apply._maybe_embed_cover(
-            Path("foo.mp3"), args, {}, logging.getLogger("test")
+            Path("foo.mp3"),
+            args,
+            {},
+            logging.getLogger("test"),
         )
         is None
     )
@@ -55,14 +56,18 @@ def test_maybe_embed_cover_skips_when_not_requested() -> None:
     # missing cover_art key -> skipped
     assert (
         id3_apply._maybe_embed_cover(
-            Path("foo.mp3"), args, {}, logging.getLogger("test")
+            Path("foo.mp3"),
+            args,
+            {},
+            logging.getLogger("test"),
         )
         is None
     )
 
 
 def test_maybe_embed_cover_calls_embed_and_handles_results(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     args = SimpleNamespace(embed_cover_art=True)
     mb_info = {"cover_art": "https://example.com/cover.jpg"}
