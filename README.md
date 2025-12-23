@@ -59,7 +59,6 @@ This project recommends the following VS Code extensions to provide a smooth dev
 - `charliermarsh.ruff` (Ruff linter)
 - `ms-python.black-formatter` (Black formatter)
 - `ms-python.isort` (isort import sorting)
-- `ms-python.mypy-type-checker` (mypy integration)
 - `njpwerner.autodocstring` (docstring generation)
 - `GitHub.vscode-pull-request-github` (optional: GitHub PR support)
 

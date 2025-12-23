@@ -18,8 +18,8 @@ def test_cli_id3_prints_tags(tmp_path: Path, caplog: pytest.LogCaptureFixture) -
     except Exception as exc:  # pragma: no cover - test dependency
         pytest.skip("mutagen not available: %s" % exc)
 
-    tags = ID3()  # type: ignore
-    tags.add(TIT2(encoding=3, text=["CLI Title"]))  # type: ignore
+    tags = ID3()
+    tags.add(TIT2(encoding=3, text=["CLI Title"]))
     tags.save(str(p))
 
     caplog.set_level(logging.INFO)

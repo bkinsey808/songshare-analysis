@@ -24,8 +24,8 @@ def test_apply_metadata_cli(
         from mutagen.id3 import ID3
         from mutagen.id3._frames import TIT2
 
-        tags = ID3()  # type: ignore
-        tags.add(TIT2(encoding=3, text=["Om Test"]))  # type: ignore
+        tags = ID3()  # pyright: ignore
+        tags.add(TIT2(encoding=3, text=["Om Test"]))  # pyright: ignore
         tags.save(str(p))
     except Exception:
         pytest.skip("mutagen not available or couldn't write test tags")
@@ -87,8 +87,8 @@ def test_apply_then_no_proposals_on_second_run(
         from mutagen.id3 import ID3
         from mutagen.id3._frames import TIT2
 
-        tags = ID3()  # type: ignore
-        tags.add(TIT2(encoding=3, text=["Om Test"]))  # type: ignore
+        tags = ID3()  # pyright: ignore
+        tags.add(TIT2(encoding=3, text=["Om Test"]))  # pyright: ignore
         tags.save(str(p))
     except Exception:
         pytest.skip("mutagen not available or couldn't write test tags")
@@ -137,8 +137,8 @@ def test_detect_noop_apply_logs_warning(
         from mutagen.id3 import ID3
         from mutagen.id3._frames import TIT2
 
-        tags = ID3()  # type: ignore
-        tags.add(TIT2(encoding=3, text=["Existing Title"]))  # type: ignore
+        tags = ID3()  # pyright: ignore
+        tags.add(TIT2(encoding=3, text=["Existing Title"]))  # pyright: ignore
         tags.save(str(p))
     except Exception:
         pytest.skip("mutagen not available or couldn't write test tags")

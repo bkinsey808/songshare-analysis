@@ -7,7 +7,6 @@ EXTENSIONS=(
   charliermarsh.ruff
   ms-python.black-formatter
   ms-python.isort
-  ms-python.mypy-type-checker
   njpwerner.autodocstring
   GitHub.vscode-pull-request-github
 )

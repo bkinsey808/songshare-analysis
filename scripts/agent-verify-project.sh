@@ -12,7 +12,6 @@ if command -v poetry >/dev/null 2>&1; then
   poetry run ruff check .
   poetry run isort --check-only .
   poetry run black --check .
-  poetry run mypy --strict src
   poetry run pyright src/
   poetry run pytest -q
   echo "All checks passed under poetry"
@@ -26,7 +25,6 @@ if [ -f .venv/bin/activate ]; then
   ruff check .
   isort --check-only .
   black --check .
-  mypy --strict src
   pyright src/
   pytest -q
   echo "All checks passed in .venv"

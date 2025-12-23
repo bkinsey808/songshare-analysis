@@ -25,7 +25,7 @@ This repository is a venv/Poetry project. Many commands (lint, typecheck, tests,
 3. Test file names and directory structure should mirror source files. I like test files colocated with source files.
 4. Prefer many small files grouped into tidy directories over a few huge files.
 5. Stub files and deprecation shims should be fully removed after refactoring, call sites should be updated.
-6. Ensure code is fully linted and type-checked: `ruff`, `black`, `isort`, `mypy --strict`, and `pylance` must pass.
+6. Ensure code is fully linted and type-checked: `ruff`, `black`, `isort`, and `pyright` must pass.
 7. Avoid `# type: ignore` and ruff/mypy disable comments where possible; if unavoidable, add a `TODO` comment referencing a short justification.
 8. Add tests colocated with source files (mirror path and filename with `.py` -> `_test.py` or `test_*.py` style used in repository). Tests should run under `pytest`.
 9. Ensure the project builds (if applicable) and unit tests pass.

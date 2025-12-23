@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     # Keep type-only imports grouped and sorted for readability
-    from mutagen import File as MutagenFile  # type: ignore
+    from mutagen import File as MutagenFile
     from mutagen.id3 import ID3
     from mutagen.id3._frames import TALB, TCON, TIT2, TPE1, TXXX
 
@@ -21,21 +21,21 @@ if TYPE_CHECKING:
     from .types import ID3Like, ID3ReadResult
 else:
     try:
-        from mutagen import File as MutagenFile  # type: ignore[import]
+        from mutagen import File as MutagenFile
     except ImportError:  # pragma: no cover - runtime dependency
-        MutagenFile = None  # type: ignore[assignment]
+        MutagenFile = None
 
 
 # `ID3ReadResult` is defined in `songshare_analysis.types` and imported
 # under TYPE_CHECKING above. See `types.py` for the authoritative shape.
 
 if TYPE_CHECKING:
-    from mutagen import File as MutagenFile  # type: ignore
+    from mutagen import File as MutagenFile
 else:
     try:
-        from mutagen import File as MutagenFile  # type: ignore[import]
+        from mutagen import File as MutagenFile
     except ImportError:  # pragma: no cover - runtime dependency
-        MutagenFile = None  # type: ignore[assignment]
+        MutagenFile = None
 
 
 def read_id3(path: Path) -> ID3ReadResult:

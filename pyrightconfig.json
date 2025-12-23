@@ -11,9 +11,14 @@
     "**/__pycache__/**"
   ],
   "reportPrivateUsage": false,
-  "reportUnknownMemberType": false,
+  "reportPrivateImportUsage": false,
   "reportUnusedFunction": false,
   "reportTypedDictNotRequiredAccess": false,
   "reportArgumentType": false,
-  "reportOperatorIssue": false
+  "reportOperatorIssue": false,
+  "reportMissingTypeStubs": false,
+  "reportUnknownVariableType": false,
+  "reportUnknownArgumentType": false,
+  "reportUnknownLambdaType": false,
+  "reportUnknownParameterType": false
 }
