@@ -26,7 +26,7 @@ Always remind the user to activate the `.venv` (or use `poetry run`) before runn
 4. Prefer many small files grouped into tidy directories over a few huge files.
 5. Stub files and deprecation shims should be fully removed after refactoring, call sites should be updated.
 6. Ensure code is fully linted and type-checked: `ruff`, `black`, `isort`, and `pyright` must pass.
-7. Avoid `# type: ignore` and ruff/mypy disable comments where possible; if unavoidable, add a `TODO` comment referencing a short justification.
+7. Avoid `# type: ignore`, `# pyright: ignore`, and ruff disable comments where possible; if unavoidable, add a `TODO` comment referencing a short justification.
 8. Add tests colocated with source files (mirror path and filename with `.py` -> `_test.py` or `test_*.py` style used in repository). Tests should run under `pytest`.
 9. Ensure the project builds (if applicable) and unit tests pass.
 10. Run the verification script `scripts/agent-verify-project.sh` (or `scripts/agent_checks.py`) and get a clean report before requesting review.

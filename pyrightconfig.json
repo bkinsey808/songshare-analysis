@@ -2,7 +2,8 @@
   "typeCheckingMode": "standard",
   "pythonVersion": "3.12",
   "include": [
-    "src"
+    "src",
+    "typings"
   ],
   "exclude": [
     "**/tests/**",

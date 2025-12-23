@@ -1,0 +1,29 @@
+name: songshare-essentia
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - librosa
+  - pysoundfile
+  - ffmpeg
+  - joblib
+  - pandas
+  - pip
+  - pip:
+      # Essentia via pip is retained as the installation method for this platform
+      # Note: on some platforms conda-forge provides prebuilt Essentia binaries; if
+      # a conda binary becomes available for your platform in the future, consider
+      # switching back to the conda-forge pin.
+      - essentia
+      - panns-inference
+      # demucs is heavy and GPU-dependent; enable in a separate env if needed
+      # - demucs
+      # optional testing helpers
+      - pytest
+      - pytest-timeout
+      - pytest-xdist
+      - black
+      - ruff
+      - tomli

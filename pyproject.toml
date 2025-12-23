@@ -53,6 +53,8 @@ pre-commit = "^3.5"
 pytest-cov = "^4.1"
 # Optional soundfile for Essentia / audio IO tests
 soundfile = "^0.12.1"
+# JSON Schema validation for sidecar tests
+jsonschema = "^4.18"
 
 # Ensure strict mode across tests as well
  # Tests are checked under strict mode via CLI/Makefile

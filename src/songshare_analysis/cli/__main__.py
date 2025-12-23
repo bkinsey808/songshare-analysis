@@ -88,6 +88,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show verbose output for debugging and interactive inspection",
     )
 
+    # Essentia integration flags
+    id3_parser.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Run Essentia extractors and write a JSON sidecar",
+    )
+    id3_parser.add_argument(
+        "--apply-tags",
+        action="store_true",
+        help="Convert analysis to ID3/TXXX according to thresholds and apply tags",
+    )
+    id3_parser.add_argument(
+        "--separate-vocals",
+        action="store_true",
+        help="Run optional vocal separation before analyzing (requires external tool)",
+    )
+
     return parser
 
 

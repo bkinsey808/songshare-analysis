@@ -6,7 +6,7 @@ minimal venvs and in CI shells before dev dependencies are installed.
 
 Checks performed:
 - Long files (prefer <400 lines)
-- Presence of `# type: ignore`, `# pyright: ignore`, or ruff/mypy disable comments
+- Presence of `# type: ignore`, `# pyright: ignore`, or ruff disable comments
 - Quick heuristic for tests present for source modules
 
 Exit status: 0 if all checks pass, >0 otherwise.
@@ -24,7 +24,7 @@ TESTS = ROOT / "tests"
 
 LONG_FILE_THRESHOLD = 400
 IGNORE_PATTERN = re.compile(
-    r"#\s*type:\s*ignore|#\s*noqa|#\s*ruff:\s*noqa|#\s*mypy:\s*ignore|#\s*pyright:\s*ignore"
+    r"#\s*type:\s*ignore|#\s*noqa|#\s*ruff:\s*noqa|#\s*pyright:\s*ignore"
 )
 
 

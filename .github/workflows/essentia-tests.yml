@@ -1,0 +1,27 @@
+name: Essentia tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  essentia-tests:
+    runs-on: ubuntu-latest
+    name: Run Essentia-enabled tests (optional)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up conda/mamba environment
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          environment-file: environment.essentia.yml
+          activate-environment: songshare-essentia
+          auto-update-conda: true
+          use-mamba: true
+
+      - name: Install project dependencies
+        run: |
+          poetry install
+
+      - name: Run Essentia tests
+        run: |
+          pytest -q -m essentia

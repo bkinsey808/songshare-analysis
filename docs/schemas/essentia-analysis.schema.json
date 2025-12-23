@@ -1,0 +1,106 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Essentia analysis sidecar",
+    "description": "Compact JSON sidecar produced by Essentia-based extractors (conservative summary, not full per-frame matrices).",
+    "type": "object",
+    "required": [
+        "version",
+        "analysis"
+    ],
+    "properties": {
+        "version": {
+            "type": "string"
+        },
+        "provenance": {
+            "type": "object",
+            "properties": {
+                "tool": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "additionalProperties": true
+        },
+        "analysis": {
+            "type": "object",
+            "properties": {
+                "rhythm": {
+                    "type": "object",
+                    "properties": {
+                        "bpm": {
+                            "type": [
+                                "number",
+                                "null"
+                            ]
+                        },
+                        "beats": {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        },
+                        "beat_cv": {
+                            "type": [
+                                "number",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": true
+                },
+                "spectral": {
+                    "type": "object",
+                    "properties": {
+                        "centroid": {
+                            "type": [
+                                "number",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": true
+                },
+                "tonal": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string"
+                        },
+                        "key_strength": {
+                            "type": [
+                                "number",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": true
+                },
+                "tuning": {
+                    "type": "object",
+                    "properties": {
+                        "cents_offset": {
+                            "type": [
+                                "number",
+                                "null"
+                            ]
+                        },
+                        "reference_hz": {
+                            "type": [
+                                "number",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": true
+        }
+    },
+    "additionalProperties": true
+}

@@ -6,3 +6,5 @@ isort>=5.12.0
 pre-commit>=3.5.0
 pyright>=1.1.0
 pandas-stubs>=1.5.0
+# Schema validation for Essentia sidecar tests
+jsonschema>=4.18.0

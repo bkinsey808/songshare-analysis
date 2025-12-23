@@ -76,7 +76,6 @@ code --install-extension ms-python.vscode-pylance
 code --install-extension charliermarsh.ruff
 code --install-extension ms-python.black-formatter
 code --install-extension ms-python.isort
-code --install-extension ms-python.mypy-type-checker
 code --install-extension njpwerner.autodocstring
 code --install-extension GitHub.vscode-pull-request-github
 ```
