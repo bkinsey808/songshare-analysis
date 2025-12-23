@@ -17,7 +17,7 @@ This repository is a venv/Poetry project. Many commands (lint, typecheck, tests,
   - If `poetry` is available: run `poetry install` and use `poetry run <command>`
   - Otherwise: run `make venv` then `source .venv/bin/activate` and then the `make` targets
 
-**Always remind the user to activate the `.venv` (or use `poetry run`) before running linting, mypy, or pytest.** If running commands on a remote VM/devcontainer, make sure you are inside that VM when invoking them.
+Always remind the user to activate the `.venv` (or use `poetry run`) before running linting, type checks, or pytest. If running commands on a remote VM/devcontainer, make sure you are inside that VM when invoking them.
 
 # Checklist the agent must enforce for any change (in this order)
 1. Keep individual files small when possible (prefer <400 LOC). Split large files into well-named modules.

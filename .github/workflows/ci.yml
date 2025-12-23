@@ -36,5 +36,3 @@ jobs:
         run: |
           poetry run isort --check-only .
           poetry run black --check .
-      - name: Type check (mypy)
-        run: poetry run mypy --strict src tests

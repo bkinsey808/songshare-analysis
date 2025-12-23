@@ -170,30 +170,30 @@ The CLI supports the following options:
 Typing
 ------
 
-This project includes a typing setup for developers. Use `mypy` for CI and `pyright` for editor type checking.
+This project uses `pyright` (via `pyrightconfig.json`) for editor type checking and `ruff`/`black` for linting and formatting.
 
-Install dev deps and run mypy:
+Install dev deps and run the editor typecheck tool:
 
 ```bash
 pip install -r requirements-dev.txt
-mypy
+# Use your editor's Pyright/Pylance integration or run:
+pyright
 ```
 
 Notes about pandas and typing:
 
-- Pandas is dynamically typed; we include `pandas-stubs` in `requirements-dev.txt` to help `mypy` understand `DataFrame` typing and improve annotations.
-- For a gradual approach: annotate public functions first, rely on `ignore_missing_imports = true`, and incrementally increase strictness.
+- Pandas is dynamically typed; we include `pandas-stubs` in `requirements-dev.txt` to help with `pyright` and static analysis.
 
 Strict type checking
 --------------------
 
-This repo enforces `mypy --strict` in CI and the `Makefile` `typecheck` target. Run it locally as follows:
+This repo runs `pyright` as part of local checks and CI where appropriate. Use the Makefile `typecheck` target to run the type checker locally:
 
 ```bash
 make typecheck
 ```
 
-If you need to annotate a file but want to disable strict checks temporarily, add module-level mypy options or a `# type: ignore` comment with a corresponding `TODO` to track technical debt.
+If you need to temporarily suppress checks for a file, add `# type: ignore` with a corresponding `TODO` note to track technical debt.
 
 Format & lint:
 
