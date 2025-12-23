@@ -148,7 +148,7 @@ def test_summary_includes_skipped_count(
     )  # no --mb-fetch-missing; MB IDs present -> skip
     out = capsys.readouterr().out
 
-    assert "files skipped=1" in out
+    assert "Files skipped: 1" in out
 
 
 def _fake_read_id3(path: Path) -> dict[str, Any]:

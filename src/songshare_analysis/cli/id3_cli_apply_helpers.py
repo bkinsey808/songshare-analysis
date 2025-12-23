@@ -35,17 +35,11 @@ def _maybe_embed_cover(
         if res is True and logger:
             logger.info("Cover art embedded for %s", target_path)
         if res is False and logger:
-            msg = (
-                "Cover art embedding failed; " "skipping metadata apply for this file."
-            )
-            logger.warning(msg)
+            pass  # Suppress cover art embedding failure messages
         return res
     except Exception:  # pragma: no cover - runtime/network
         if logger:
-            msg = (
-                "Cover art embedding failed; " "skipping metadata apply for this file."
-            )
-            logger.warning(msg)
+            pass  # Suppress cover art embedding failure messages
         return False
 
 
@@ -69,33 +63,70 @@ def _prepare_embed(
     args: Args,
     mb_info: MBInfo | Mapping[str, Any],
     existing_tags: Mapping[str, TagValue] | None = None,
-) -> tuple[str | None, bool, bool, bytes | None]:
+) -> tuple[str | None, bool, bool, bytes | None, bool, bool, bool]:
+    """Prepare cover art embedding.
+
+    Returns:
+        cover_url, embed_requested, embed_would_write, cover_bytes,
+        cover_already_present, cover_download_attempted, cover_download_success
+    """
     cover_url = mb_info.get("cover_art")
     if not isinstance(cover_url, str):
         cover_url = None
     embed_requested = bool(getattr(args, "embed_cover_art", False))
     embed_would_write = False
     cover_bytes: bytes | None = None
+    cover_already_present = False
+    cover_download_attempted = False
+    cover_download_success = False
 
     if not (embed_requested and cover_url):
-        return cover_url, embed_requested, embed_would_write, cover_bytes
+        return (
+            cover_url,
+            embed_requested,
+            embed_would_write,
+            cover_bytes,
+            cover_already_present,
+            cover_download_attempted,
+            cover_download_success,
+        )
 
     existing = existing_tags or {}
     if any(k.startswith("APIC") for k in existing.keys()) or any(
         isinstance(v, (bytes, bytearray)) for v in existing.values()
     ):
-        return cover_url, embed_requested, False, None
+        cover_already_present = True
+        return (
+            cover_url,
+            embed_requested,
+            False,
+            None,
+            cover_already_present,
+            cover_download_attempted,
+            cover_download_success,
+        )
 
+    cover_download_attempted = True
     try:
         from songshare_analysis.id3_cover import _download_cover_art
 
         cover_bytes = _download_cover_art(str(cover_url), timeout=5)
         embed_would_write = True
+        cover_download_success = True
     except Exception:
         cover_bytes = None
         embed_would_write = False
+        cover_download_success = False
 
-    return cover_url, embed_requested, embed_would_write, cover_bytes
+    return (
+        cover_url,
+        embed_requested,
+        embed_would_write,
+        cover_bytes,
+        cover_already_present,
+        cover_download_attempted,
+        cover_download_success,
+    )
 
 
 def _compute_delta(
@@ -162,11 +193,7 @@ def _perform_embed(
             return True
         except Exception:  # pragma: no cover - runtime/network
             if logger:
-                msg = (
-                    "Cover art embedding failed; "
-                    "skipping metadata apply for this file."
-                )
-                logger.warning(msg)
+                logger.warning("Cover art embedding failed for %s", target_path)
             return False
 
     return _maybe_embed_cover(target_path, args, mb_info, logger)

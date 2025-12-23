@@ -49,8 +49,19 @@ def _maybe_propose_and_apply(
     Returns a dict describing what happened with keys:
       - applied: bool (True if metadata was applied)
       - embed: True|False|None (embed outcome)
+      - tit2_changed: bool (True if TIT2 tag was changed)
+      - cover_already_present: bool
+      - cover_download_attempted: bool
+      - cover_download_success: bool
     """
-    result = {"applied": False, "embed": None}
+    result = {
+        "applied": False,
+        "embed": None,
+        "tit2_changed": False,
+        "cover_already_present": False,
+        "cover_download_attempted": False,
+        "cover_download_success": False,
+    }
 
     apply_flag = getattr(args, "apply_metadata", False) or getattr(
         args,
@@ -62,11 +73,23 @@ def _maybe_propose_and_apply(
 
     proposed = propose_metadata_from_mb(mb_info)
 
-    cover_url, _embed_requested, embed_would_write, cover_bytes = _prepare_embed(
+    (
+        cover_url,
+        _embed_requested,
+        embed_would_write,
+        cover_bytes,
+        cover_already_present,
+        cover_download_attempted,
+        cover_download_success,
+    ) = _prepare_embed(
         args,
         mb_info,
         existing_tags,
     )
+
+    result["cover_already_present"] = cover_already_present
+    result["cover_download_attempted"] = cover_download_attempted
+    result["cover_download_success"] = cover_download_success
 
     if not proposed and not embed_would_write:
         logger.info("No proposed metadata to apply")
@@ -103,6 +126,11 @@ def _maybe_propose_and_apply(
         return result
 
     # Perform embed + apply flow in a helper to keep complexity low here.
+    cover_stats = {
+        "cover_already_present": cover_already_present,
+        "cover_download_attempted": cover_download_attempted,
+        "cover_download_success": cover_download_success,
+    }
     return _perform_apply_and_report(
         target_path,
         args,
@@ -113,6 +141,7 @@ def _maybe_propose_and_apply(
         delta,
         before_tags or {},
         proposed,
+        cover_stats,
     )
 
 
@@ -126,15 +155,21 @@ def _perform_apply_and_report(
     delta: dict[str, TagValue],
     before_tags: Mapping[str, TagValue],
     proposed: dict[str, str],
+    cover_stats: dict[str, bool],
 ) -> dict[str, bool | None]:
     """Attempt embed, apply metadata, verify and print a per-file report.
 
     Returns a result dict with keys ``applied`` and ``embed`` mirroring the
     previous semantics from the larger function.
     """
-    result = {"applied": False, "embed": None}
+    result = {
+        "applied": False,
+        "embed": None,
+        "tit2_changed": "TIT2" in delta,
+        **cover_stats,
+    }
 
-    # Attempt embed first; abort apply on embed failure
+    # Attempt embed; continue with metadata apply even on embed failure
     embed_result = _perform_embed(
         target_path,
         args,
@@ -144,8 +179,6 @@ def _perform_apply_and_report(
         cover_url,
     )
     result["embed"] = embed_result
-    if embed_result is False:
-        return result
 
     if not delta:
         return result

@@ -334,15 +334,10 @@ def test_cli_stats_counts_apply_and_embed(
 
     assert "test_data/a.mp3" in applied
     assert "test_data/c.mp3" in applied
-    assert "b.mp3" not in applied
+    assert "test_data/b.mp3" in applied
 
     msgs = [r.getMessage() for r in caplog.records]
-    assert sum(1 for m in msgs if m == "Metadata applied (backup created).") == 2
+    assert sum(1 for m in msgs if m == "Metadata applied (backup created).") == 3
 
     embedded_count = sum(1 for p in applied if fake_embed(Path(p), ""))
     assert embedded_count == 1
-
-    assert any(
-        "Cover art embedding failed; skipping metadata apply for this file." in m
-        for m in msgs
-    )

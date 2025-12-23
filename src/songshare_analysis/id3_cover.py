@@ -127,5 +127,5 @@ def _embed_cover_if_needed(path: Path, url: str, timeout: int = 5) -> bool | Non
         logger.info("Embedded cover art into %s", path)
         return True
     except Exception:  # pragma: no cover - network/runtime
-        logger.exception("Cover art embedding failed for %s", path)
+        # Suppress cover art embedding failure messages
         return False

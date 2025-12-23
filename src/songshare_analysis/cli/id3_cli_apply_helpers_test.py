@@ -82,16 +82,10 @@ def test_maybe_embed_cover_calls_embed_and_handles_results(
         "Cover art embedding failed" in r.getMessage() for r in caplog.records
     )
 
-    # Return False -> logs visible warning and returns False
+    # Return False -> returns False (logging suppressed)
     monkeypatch.setattr(id3mod, "_embed_cover_if_needed", lambda p, u: False)
     res = id3_apply._maybe_embed_cover(Path("foo.mp3"), args, mb_info, logger)
     assert res is False
-    assert res is False
-    assert any(
-        "Cover art embedding failed; skipping metadata apply for this file."
-        in r.getMessage()
-        for r in caplog.records
-    )
 
 
 def test_apply_metadata_safe_logs_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:

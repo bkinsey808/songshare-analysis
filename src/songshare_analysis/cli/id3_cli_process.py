@@ -84,15 +84,20 @@ def _process_all_files(
     files: list[Path],
     args: ProcessArgs,
     logger: Logger,
-) -> tuple[int, int, int, int, int]:
+) -> tuple[int, int, int, int, int, int, int, int, int]:
     """Process a list of files and return counters (processed, applied,
-    embedded, failed, skipped).
+    embedded, failed, skipped, already_present, download_attempted,
+    download_success, tit2_changed).
     """
     files_processed = 0
     tags_applied = 0
     covers_embedded = 0
     covers_failed = 0
     files_skipped = 0
+    covers_already_present = 0
+    covers_download_attempted = 0
+    covers_download_success = 0
+    tit2_changed = 0
 
     for f in files:
         files_processed += 1
@@ -106,8 +111,26 @@ def _process_all_files(
             covers_failed += 1
         if res.get("skipped"):
             files_skipped += 1
+        if res.get("cover_already_present"):
+            covers_already_present += 1
+        if res.get("cover_download_attempted"):
+            covers_download_attempted += 1
+        if res.get("cover_download_success"):
+            covers_download_success += 1
+        if res.get("tit2_changed"):
+            tit2_changed += 1
 
-    return files_processed, tags_applied, covers_embedded, covers_failed, files_skipped
+    return (
+        files_processed,
+        tags_applied,
+        covers_embedded,
+        covers_failed,
+        files_skipped,
+        covers_already_present,
+        covers_download_attempted,
+        covers_download_success,
+        tit2_changed,
+    )
 
 
 def _iter_audio_files(path: Path, recursive: bool) -> list[Path]:
@@ -162,6 +185,11 @@ def handle_id3_command(args: ProcessArgs, logger: Logger) -> None:
     tags_applied = 0
     covers_embedded = 0
     covers_failed = 0
+    files_skipped = 0
+    covers_already_present = 0
+    covers_download_attempted = 0
+    covers_download_success = 0
+    tit2_changed = 0
 
     # Use module-level helpers to process files
     (
@@ -170,24 +198,40 @@ def handle_id3_command(args: ProcessArgs, logger: Logger) -> None:
         covers_embedded,
         covers_failed,
         files_skipped,
+        covers_already_present,
+        covers_download_attempted,
+        covers_download_success,
+        tit2_changed,
     ) = _process_all_files(files, args, logger)
 
     # Emit a concise summary with skipped files counter
     logger.info(
         "Processed %d files: tags applied=%d, files skipped=%d, \n"
-        "covers embedded=%d, covers failed=%d",
+        "covers embedded=%d, covers failed=%d, covers already present=%d, \n"
+        "cover downloads attempted=%d, cover downloads successful=%d, \n"
+        "TIT2 changed=%d",
         files_processed,
         tags_applied,
         files_skipped,
         covers_embedded,
         covers_failed,
+        covers_already_present,
+        covers_download_attempted,
+        covers_download_success,
+        tit2_changed,
     )
 
     # Also print a brief summary to stdout so users see it even without
     # --verbose (INFO logs require --verbose to be visible by default).
     summary_str = (
-        f"Processed {files_processed} files: tags applied={tags_applied}, "
-        f"files skipped={files_skipped}, covers embedded={covers_embedded}, "
-        f"covers failed={covers_failed}"
+        f"Processed files: {files_processed}\n"
+        f"Files skipped: {files_skipped}\n"
+        f"Tags applied: {tags_applied}\n"
+        f"Covers embedded: {covers_embedded}\n"
+        f"Covers failed: {covers_failed}\n"
+        f"Covers already present: {covers_already_present}\n"
+        f"Cover downloads attempted: {covers_download_attempted}\n"
+        f"Cover downloads successful: {covers_download_success}\n"
+        f"TIT2 changed: {tit2_changed}"
     )
     print(summary_str)  # noqa: T201
