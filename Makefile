@@ -1,8 +1,21 @@
 # Simple Makefile for common operations
-.PHONY: help venv install test lint format clean
+.PHONY: help install install-mamba essentia-env analyze-env poetry-env test lint format clean
 
 help:
-	@echo "Available commands: venv, install, install-mamba, essentia-env, poetry-env, test, lint, format, clean"
+	@echo "Available commands: install, install-mamba, essentia-env (alias: analyze-env), poetry-env, test, lint, format, clean"
+
+# Backwards-compatible alias targets so users can use either name
+analyze-env: essentia-env
+	@echo "Alias: analyze-env -> essentia-env"
+
+analyze-test: essentia-test
+	@echo "Alias: analyze-test -> essentia-test"
+
+analyze-analyze: essentia-analyze
+	@echo "Alias: analyze-analyze -> essentia-analyze"
+
+analyze-setup-test: essentia-setup-test
+	@echo "Alias: analyze-setup-test -> essentia-setup-test"
 
 install-mamba:
 	@echo "Install Mambaforge locally (user-local installer)"
@@ -14,18 +27,18 @@ install-mamba:
 
 # Create the optional Essentia conda/mamba environment and run poetry install inside it
 essentia-env:
-	@echo "Create Essentia conda environment using environment.essentia.yml"
+	@echo "Create analyze CPU conda environment using environment.analyze-cpu.yml"
 	@if command -v mamba >/dev/null 2>&1; then \
-		mamba env create -f environment.essentia.yml || mamba env update -f environment.essentia.yml -n songshare-essentia --prune; \
-	else \
+		mamba env create -f environment.analyze-cpu.yml || mamba env update -f environment.analyze-cpu.yml -n songshare-analyze-cpu --prune; \
+	@echo "Environment updated: songshare-analyze-cpu"	else \
 		if command -v conda >/dev/null 2>&1; then \
-			conda env create -f environment.essentia.yml || conda env update -f environment.essentia.yml -n songshare-essentia --prune; \
+			conda env create -f environment.analyze-cpu.yml || conda env update -f environment.analyze-cpu.yml -n songshare-analyze-cpu --prune; \
 		else \
 			echo "conda or mamba is required. Run 'make install-mamba' to install a user-local mamba."; exit 1; \
 		fi; \
 	fi
 	@echo "Activate the env and install project packages with poetry:"
-	@echo "  conda activate songshare-essentia && poetry install"
+	@echo "  conda activate songshare-analyze-cpu && poetry install"
 
 poetry-env:
 	@echo "Install project into the current Python environment using Poetry"
@@ -35,21 +48,17 @@ poetry-env:
 		echo "Poetry isn't installed. Install it from https://python-poetry.org/docs/"; exit 1; \
 	fi
 
-venv:
-	python3 -m venv .venv
-	@echo "Created virtualenv in .venv. Activate with: source .venv/bin/activate"
-
-install: venv
-	@echo "Installing dependencies with Poetry (preferred) or via pip fallback"
+install:
+	@echo "Installing dependencies with Poetry (preferred)."
 	@if command -v poetry >/dev/null 2>&1; then \
 		poetry install; \
 	else \
-		. .venv/bin/activate && pip install -U pip && pip install -r requirements.txt && pip install -r requirements-dev.txt; \
-	fi
-
-export-reqs:
-	@if command -v poetry >/dev/null 2>&1; then \
-		poetry export -f requirements.txt --without-hashes -o requirements.txt; \
+		# If no global Poetry, attempt to provision the Conda env and run Poetry inside it
+		if command -v mamba >/dev/null 2>&1 || command -v conda >/dev/null 2>&1; then \
+			./scripts/setup-analyze.sh; \
+		else \
+			echo "Poetry not found and no conda/mamba available. Install Poetry or use a Conda env to run 'poetry install'"; exit 1; \
+		fi; \
 		poetry export -f requirements.txt --dev --without-hashes -o requirements-dev.txt; \
 	else \
 		@echo "Install poetry to export requirements: https://python-poetry.org/docs/"; \
@@ -59,39 +68,71 @@ test:
 	@if command -v poetry >/dev/null 2>&1; then \
 		poetry run pytest; \
 	else \
-		. .venv/bin/activate && pytest; \
+		# If using Conda env, run tests inside it ensuring Poetry is present
+		if command -v mamba >/dev/null 2>&1 || command -v conda >/dev/null 2>&1; then \
+			./scripts/setup-analyze.sh && mamba run -n songshare-analyze-cpu pytest; \
+		else \
+			echo "Run tests inside your Conda/Mamba env (e.g., make essentia-env && mamba activate songshare-analyze-cpu && pip install -e . && pytest)"; \
+		fi; \
+	else \
+		echo "Run tests inside your Conda/Mamba env (e.g., make essentia-env && mamba activate songshare-analyze-cpu && pip install -e . && pytest)"; \
 	fi
 
 lint:
 	@if command -v poetry >/dev/null 2>&1; then \
 		poetry run ruff check . && poetry run isort --check-only . && poetry run black --check .; \
 	else \
-		. .venv/bin/activate && ruff check . && isort --check-only . && black --check .; \
+		# Try to set up the analyze env and run lint inside it
+		if command -v mamba >/dev/null 2>&1 || command -v conda >/dev/null 2>&1; then \
+			./scripts/setup-analyze.sh && mamba run -n songshare-analyze-cpu make lint; \
+		else \
+			echo "Poetry not found. To run linting use the 'songshare-analyze-cpu' conda env: make essentia-env && mamba run -n songshare-analyze-cpu pip install poetry && mamba run -n songshare-analyze-cpu poetry install && make lint"; \
+		fi; \
 	fi
 
 typecheck:
 	@if command -v poetry >/dev/null 2>&1; then \
 		poetry run pyright src; \
 	else \
-		. .venv/bin/activate && pyright src; \
+		echo "Poetry not found. To run typecheck use the 'songshare-analyze-cpu' conda env: make essentia-env && conda activate songshare-analyze-cpu && pip install -e . && make typecheck"; \
 	fi
 
 format:
 	@if command -v poetry >/dev/null 2>&1; then \
 		poetry run ruff check --fix . && poetry run isort . && poetry run black . && poetry run ruff check --fix .; \
 	else \
-		. .venv/bin/activate && ruff check --fix . && isort . && black . && ruff check --fix .; \
+		echo "Poetry not found. To format code use the 'songshare-analyze-cpu' conda env: make essentia-env && conda activate songshare-analyze-cpu && pip install -e . && make format"; \
 	fi
 
 clean:
-	rm -rf .venv build dist *.egg-info
+	rm -rf build dist *.egg-info
 	rm -rf .pytest_cache
 
 essentia-test: essentia-env
-	@echo "Running essentia tests in conda env 'songshare-essentia'"
-	@conda run -n songshare-essentia pytest src/songshare_analysis/test_essentia_mp3.py -q
+	@echo "Running essentia tests in conda env 'songshare-analyze-cpu'"
+	@conda run -n songshare-analyze-cpu pytest src/songshare_analysis/test_essentia_mp3.py -q
+
+# Run the `songshare-analyze` CLI inside the `songshare-analyze-cpu` env so
+# users don't have to manually activate the env. Usage:
+#   make essentia-analyze path=/full/path/to/file.mp3
+essentia-analyze:
+	@set -e; \
+	if command -v mamba >/dev/null 2>&1; then \
+		MCONDA=mamba; \
+	elif command -v conda >/dev/null 2>&1; then \
+		MCONDA=conda; \
+	else \
+		echo "mamba or conda required to run this target"; exit 1; \
+	fi; \
+	if [ -z "$(path)" ]; then \
+		echo "Usage: make essentia-analyze path=/full/path/to/file.mp3"; exit 2; \
+	fi; \
+	# Ensure the project is installable in the env (editable install); ignore
+	# failures from pip install (it may already be installed).
+	${MCONDA} run -n songshare-analyze-cpu bash -lc 'cd "$(PWD)" && pip install -e . >/dev/null 2>&1 || true'; \
+	${MCONDA} run -n songshare-analyze-cpu bash -lc 'songshare-analyze id3 "$(path)" --analyze'
 
 # Convenience: install mambaforge if needed, create env, and run essentia tests
 essentia-setup-test:
-	@echo "Run Mambaforge install (if needed), create 'songshare-essentia' env, and run tests"
-	@./scripts/run-essentia-tests.sh
+	@echo "Run Mambaforge install (if needed), create 'songshare-analyze-cpu' env, and run tests"
+	@./scripts/run-analyze-tests.sh
