@@ -29,6 +29,30 @@ def test_analysis_to_id3_genre_applied_when_confident():
     assert "TXXX:genre_top_confidence" in tags
 
 
+def test_genre_music_is_filtered():
+    analysis = {
+        "provenance": {"tool": "panns", "version": "0.1"},
+        "analysis": {},
+        "semantic": {"genre": {"top": "Music", "top_confidence": 0.8}},
+    }
+
+    tags = analysis_to_id3(analysis)
+    assert "TCON" not in tags
+    assert tags.get("TXXX:genre_top") == "Music"
+
+
+def test_genre_specific_is_applied():
+    analysis = {
+        "provenance": {"tool": "panns", "version": "0.1"},
+        "analysis": {},
+        "semantic": {"genre": {"top": "Jazz", "top_confidence": 0.9}},
+    }
+
+    tags = analysis_to_id3(analysis)
+    assert tags.get("TCON") == "Jazz"
+    assert "TXXX:genre_top" not in tags
+
+
 def test_analysis_to_id3_genre_not_applied_when_low_confidence():
     analysis = {
         "provenance": {"tool": "panns", "version": "0.1"},

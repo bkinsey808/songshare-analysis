@@ -65,13 +65,59 @@ def analysis_to_id3(
         except Exception:
             return False
 
-    if top and _genre_confident(top_conf):
+    def _is_genre_label(label: str) -> bool:
+        """Return True if `label` looks like a real music genre rather than
+        a broad descriptor (e.g., "Music", "Song", "Singing", "Speech").
+
+        This is intentionally conservative: we blacklist common generic labels
+        and otherwise allow the label to be written. The list can be extended
+        in future or replaced by a configurable whitelist.
+        """
+        if not isinstance(label, str):
+            return False
+        lb = label.strip().lower()
+        GENERIC_BLACKLIST = {
+            "music",
+            "song",
+            "singing",
+            "speech",
+            "vocal music",
+            "background music",
+            "music for children",
+            "soundtrack music",
+            "audio",
+            "instrumental",
+            "music video",
+        }
+        return lb not in GENERIC_BLACKLIST
+
+    if top and _genre_confident(top_conf) and _is_genre_label(top):
         out["TCON"] = str(top)
         try:
             out["TXXX:genre_top_confidence"] = str(float(top_conf))
         except Exception:
             pass
 
+        top_k = genre.get("top_k")
+        if top_k:
+            try:
+                out["TXXX:genre_top_k"] = json.dumps(top_k, ensure_ascii=False)
+            except Exception:
+                out["TXXX:genre_top_k"] = str(top_k)
+    else:
+        # Always write provenance and raw semantic data even when we do not
+        # apply a conservative `TCON` value so downstream inspection/debugging
+        # can see what models produced. We write raw top/top_confidence/top_k
+        # into TXXX fields when we choose not to set the core TCON frame.
+        if top:
+            try:
+                out["TXXX:genre_top"] = str(top)
+            except Exception:
+                pass
+        try:
+            out["TXXX:genre_top_confidence"] = str(float(top_conf))
+        except Exception:
+            pass
         top_k = genre.get("top_k")
         if top_k:
             try:
