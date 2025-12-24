@@ -28,8 +28,11 @@ def _essentia_import() -> Any:
     try:
         # Imported lazily to avoid hard runtime dependency for users who don't
         # use Essentia; silence static analysis when types are not available.
-        import essentia  # type: ignore[reportMissingImports]
-        import essentia.standard as es  # type: ignore[reportMissingImports]
+        # Suppress Essentia INFO logs that can be emitted during import (for
+        # example: MusicExtractorSVM messages about missing classifiers).
+        with _suppress_essentia_info():
+            import essentia  # type: ignore[reportMissingImports]
+            import essentia.standard as es  # type: ignore[reportMissingImports]
 
         return essentia, es
     except Exception as exc:  # pragma: no cover - runtime dep
