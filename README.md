@@ -7,21 +7,42 @@ This repository includes a `src/` style Python package layout, minimal example c
 Quick start
 -----------
 
-Create a Python virtual environment and install dependencies with Poetry (recommended):
+**Note:** For Essentia and model-based analysis (PANNs) the recommended workflow is
+to use the `songshare-analyze-cpu` conda/mamba environment (see
+`docs/essentia-integration.md`). This environment contains native binaries and
+platform-specific wheels that avoid long native builds and ensures `--analyze`
+works reliably.
+
+Create a Python virtual environment and install dependencies with Poetry (recommended). For Essentia/model work use the conda env and run Poetry inside that env:
+
+```bash
+# Create and activate the conda env (mamba preferred)
+make essentia-env
+conda activate songshare-analyze-cpu
+# Install Poetry into the activated env if needed and run it there
+pip install poetry
+poetry install
+# Or, without activating: mamba run -n songshare-analyze-cpu pip install poetry && mamba run -n songshare-analyze-cpu poetry install
+```
+
+If you prefer to use Conda/Mamba (recommended for Essentia and model-based analysis):
+
+```bash
+# Create the analyze-enabled conda env (mamba preferred). The Makefile supports both names:
+#   make essentia-env  # original name
+#   make analyze-env   # alias (recommended clearer name)
+make essentia-env
+conda activate songshare-analyze-cpu
+pip install -e .
+```
+
+Model (PANNs) note: `panns-inference` is included in the `environment.analyze-cpu.yml` environment for semantic tagging. On first use a model checkpoint (~300MB) will be downloaded to `~/panns_data/` and PANNs will run on CPU by default (we prefer the CPU-only PyTorch wheel in this project to avoid GPU deps).
+
+If you don't need Essentia native binaries and prefer Poetry for a lighter workflow, use:
 
 ```bash
 # Install poetry: https://python-poetry.org/docs/
-curl -sSL https://install.python-poetry.org | python3 -
 poetry install
-```
-
-If you don’t want to use Poetry, you can fall back to virtualenv + pip (not recommended):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
 ```
 
 VS Code interpreter & pytest imports
@@ -32,16 +53,16 @@ If you see warnings like "Import 'pytest' could not be resolved" in VS Code (Pyl
 To fix this on a Poetry-managed project:
 
 ```bash
-# Configure Poetry to create in-project virtualenvs
-poetry config virtualenvs.in-project true
+# Install dependencies via Poetry
 poetry install
 
-# In VS Code: Command Palette -> Python: Select Interpreter -> choose .venv/bin/python
+# In VS Code: Command Palette -> Python: Select Interpreter -> choose the interpreter
+# associated with the environment you use (e.g., 'songshare-analyze-cpu' or a Poetry-managed environment)
 ```
 
-For Windows the path is `.venv\Scripts\python.exe`.
+For Windows the path will point to the selected interpreter's Scripts dir (e.g., `C:\path\to\songshare-analyze-cpu\Scripts\python.exe`).
 
-If you prefer not to make the venv in-project you can still select the right Poetry venv via the VS Code interpreter selector.
+If you use the `songshare-analyze-cpu` conda env, select that interpreter in VS Code to ensure Essentia and model packages are resolved correctly.
 
 If you still see unresolved imports in the editor after selecting the correct interpreter:
 
@@ -80,16 +101,23 @@ code --install-extension njpwerner.autodocstring
 code --install-extension GitHub.vscode-pull-request-github
 ```
 
-Workspace-enforced interpreter (optional)
----------------------------------------
-This repository enforces the workspace Python interpreter to an in-project virtualenv `.venv`. If you prefer to follow that workflow:
+Workspace/interpreter selection
+--------------------------------
+This repository recommends selecting the Conda/Mamba `songshare-analyze-cpu` environment in your editor when working with Essentia or model-based features. Alternatively, you can continue to use Poetry-managed environments for lighter workflows.
+
+To set the interpreter in VS Code:
 
 ```bash
+# If using Conda/Mamba
+conda activate songshare-analyze-cpu
+# In VS Code: Command Palette -> Python: Select Interpreter -> choose the 'songshare-analyze-cpu' interpreter
+
+# If using Poetry-managed environments
 poetry config virtualenvs.in-project true
 poetry install
 ```
 
-Then open VS Code and choose the `.venv/bin/python` interpreter or use the emulator settings; the workspace will default to the in-project interpreter automatically.
+Selecting the appropriate interpreter ensures Pylance/pyright and pytest resolve packages correctly.
 
 
 Exporting requirements
@@ -105,9 +133,11 @@ poetry export -f requirements.txt --dev --without-hashes -o requirements-dev.txt
 Run tests:
 
 ```bash
+# With Poetry
 poetry run pytest
-# or with a venv
-# . .venv/bin/activate && pytest
+
+# Or inside the 'songshare-analyze-cpu' conda env
+# conda activate songshare-analyze-cpu && pytest
 ```
 
 Pre-commit hooks

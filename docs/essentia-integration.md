@@ -18,25 +18,27 @@ This document defines how to integrate Essentia into SongShare Analysis as an **
 ## Install & CI recommendations 🔧
 
 - Preferred local installs:
-  - Conda / Mamba (recommended): use the provided `environment.essentia.yml` for a reproducible environment (see below)
+  - Conda / Mamba (recommended): use the provided `environment.analyze-cpu.yml` for a reproducible environment (see below)
   - Pip (if compatible wheel exists): `pip install essentia` (verify platform wheel availability)
 - CI options (non-Docker):
-  - Provision the conda/mamba environment in CI using `conda-incubator/setup-miniconda` or `mamba` and the `environment.essentia.yml` file (see CI snippet below).
+  - Provision the conda/mamba environment in CI using `conda-incubator/setup-miniconda` or `mamba` and the `environment.analyze-cpu.yml` file (see CI snippet below).
   - Alternatively run a separate workflow that uses a VM with Essentia preinstalled.
 - Note: Essentia can be heavy to compile; keep it **optional** and avoid forcing it into main CI matrix. Use a small test fixture and a separate Essentia-enabled CI job to run full-feature tests.
 
+**Model/semantic note (PANNs)**: This repository includes `panns-inference` in `environment.analyze-cpu.yml` for model-based semantic tagging (genre/mood/instruments). The first time you run a PANNs-based inference, the package will download a model checkpoint (~300MB) to `~/panns_data/` and use CPU execution by default. We recommend the CPU-only PyTorch wheel (already used in our environment) to avoid GPU dependencies in CI and developer machines.
+
 ### Conda env file
 
-We include a ready-to-use `environment.essentia.yml` at the repo root. It prefers `essentia` from `conda-forge` but also provides a pip fallback when a conda package is not available for your platform (in our testing the `conda-forge` wheel was unavailable on some `ubuntu-latest` runners). If the conda package is unavailable the environment will install Essentia via `pip` as a fallback; prefer conda when possible to avoid long native builds. Example usage (mamba recommended):
+We include a ready-to-use `environment.analyze-cpu.yml` at the repo root. It prefers `essentia` from `conda-forge` but also provides a pip fallback when a conda package is not available for your platform (in our testing the `conda-forge` wheel was unavailable on some `ubuntu-latest` runners). If the conda package is unavailable the environment will install Essentia via `pip` as a fallback; prefer conda when possible to avoid long native builds. Example usage (mamba recommended):
 
 ```bash
 # create the env
-mamba env create -f environment.essentia.yml
+mamba env create -f environment.analyze-cpu.yml
 # or with conda
-conda env create -f environment.essentia.yml
+conda env create -f environment.analyze-cpu.yml
 
 # activate
-conda activate songshare-essentia
+conda activate songshare-analyze-cpu
 
 # install the project into the env (editable)
 poetry install
@@ -46,7 +48,7 @@ poetry install
 python -c "import essentia; print('essentia', essentia.__version__)"
 ```
 
-We also provide `scripts/setup-essentia.sh` as a small helper to create the env and show activation instructions.
+We also provide `scripts/setup-analyze.sh` as a small helper to create the env and show activation instructions.
 
 Installing Mamba (Mambaforge)
 
@@ -62,7 +64,7 @@ export PATH="$HOME/mambaforge/bin:$PATH"
 Makefile convenience targets
 
 - `make install-mamba` — downloads and installs Mambaforge (user-local) using the helper script.
-- `make essentia-env` — creates or updates the `songshare-essentia` conda env using mamba (or conda) and prints instructions to activate it.
+- `make essentia-env` — creates or updates the `songshare-analyze-cpu` conda env using mamba (or conda) and prints instructions to activate it.
 - `make poetry-env` — runs `poetry install` in the current interpreter (handy once the conda env is active).
 
 If you'd like I can add a small GitHub Actions job to exercise `make essentia-env` (non-Docker) in CI as a draft optional job.
@@ -70,12 +72,12 @@ If you'd like I can add a small GitHub Actions job to exercise `make essentia-en
 
 Poetry remains the project's default packaging tool. The recommended flow is:
 
-1. Create and activate the conda/mamba env using `environment.essentia.yml`.
+1. Create and activate the conda/mamba env using `environment.analyze-cpu.yml`. 
 2. Run `poetry install` inside the activated env so Poetry installs into that interpreter environment.
 
-Note: avoid adding `essentia` as a Poetry extra; installing that way will attempt to fetch Essentia from PyPI or build from source and may require long native builds on some platforms. Prefer creating the conda environment from `environment.essentia.yml`, activating it, and running `poetry install` inside the conda environment so Poetry uses the conda-provided Essentia binary.
+Note: avoid adding `essentia` as a Poetry extra; installing that way will attempt to fetch Essentia from PyPI or build from source and may require long native builds on some platforms. Prefer creating the conda environment from `environment.analyze-cpu.yml`, activating it, and running `poetry install` inside the conda environment so Poetry uses the conda-provided Essentia binary.
 
-Our `scripts/setup-essentia.sh` will detect `poetry` and run `poetry install` automatically after creating the conda env (if `poetry` is available on PATH).
+Our `scripts/setup-analyze.sh` will ensure Poetry is installed inside the `songshare-analyze-cpu` env and run `poetry install` within that environment automatically.
 
 ### CI (GitHub Actions) snippet (non-Docker)
 
@@ -88,8 +90,8 @@ essentia-tests:
     - uses: actions/checkout@v4
     - uses: conda-incubator/setup-miniconda@v2
       with:
-        environment-file: environment.essentia.yml
-        activate-environment: songshare-essentia
+        environment-file: environment.analyze-cpu.yml
+        activate-environment: songshare-analyze-cpu
         auto-update-conda: true
     - name: Install project deps
       run: |
@@ -228,7 +230,7 @@ songshare-analyze id3 --analyze --apply-tags ./music/01-MySong.mp3
 make essentia-env
 
 # or explicitly with mamba
-mamba env create -f environment.essentia.yml || mamba env update -f environment.essentia.yml -n songshare-essentia --prune
+mamba env create -f environment.analyze-cpu.yml || mamba env update -f environment.analyze-cpu.yml -n songshare-analyze-cpu --prune
 ```
 
 2. Run the Essentia-specific tests:
@@ -238,7 +240,7 @@ mamba env create -f environment.essentia.yml || mamba env update -f environment.
 make essentia-test
 
 # or run all Essentia-related tests directly
-conda run -n songshare-essentia pytest -q -m essentia
+conda run -n songshare-analyze-cpu pytest -q -m essentia
 ```
 
 3. To run the optional GitHub Actions Essentia workflow: open the repository's **Actions** tab and trigger **Essentia tests** via "Run workflow".
@@ -252,16 +254,36 @@ If you'd like a single command to install Mambaforge (if missing), create the Es
 make essentia-setup-test
 
 # If you already have mamba/conda and want to skip installer
-./scripts/run-essentia-tests.sh --no-install
+./scripts/run-analyze-tests.sh --no-install
+```
+
+Quick convenience for running analysis with your existing `songshare-analyze-cpu` env:
+
+- Makefile target (recommended):
+
+```bash
+make essentia-analyze path=/full/path/to/file.mp3
+```
+
+- Small helper script (same behavior):
+
+```bash
+./scripts/run-with-analyze.sh /full/path/to/file.mp3
+```
+
+Both approaches will ensure the project is installable inside the env (editable install) and then run:
+
+```bash
+songshare-analyze id3 /full/path/to/file.mp3 --analyze
 ```
 
 ### Editor setup (VS Code) 🛠️
 
 To make your editor pick up `soundfile`, `essentia`, and type stubs automatically in Visual Studio Code:
 
-1. Select the project's Python interpreter (the `songshare-essentia` conda env):
-   - Command Palette → `Python: Select Interpreter` → choose `songshare-essentia` (or pick the path: `${env:HOME}/mambaforge/envs/songshare-essentia/bin/python`).
-2. If you prefer workspace settings, the repo supplies a `.vscode/settings.json` that defaults the interpreter to the `songshare-essentia` env and adds `${workspaceFolder}/typings` to `python.analysis.extraPaths`.
+1. Select the project's Python interpreter (the `songshare-analyze-cpu` conda env):
+   - Command Palette → `Python: Select Interpreter` → choose `songshare-analyze-cpu` (or pick the path: `${env:HOME}/mambaforge/envs/songshare-analyze-cpu/bin/python`).
+2. If you prefer workspace settings, the repo supplies a `.vscode/settings.json` that defaults the interpreter to the `songshare-analyze-cpu` env and adds `${workspaceFolder}/typings` to `python.analysis.extraPaths`.
 
 After selecting or configuring the interpreter, reload the window (Developer: Reload Window) to refresh the language server and ensure imports resolve.
 
