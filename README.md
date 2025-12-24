@@ -38,12 +38,7 @@ pip install -e .
 
 Model (PANNs) note: `panns-inference` is included in the `environment.analyze-cpu.yml` environment for semantic tagging. On first use a model checkpoint (~300MB) will be downloaded to `~/panns_data/` and PANNs will run on CPU by default (we prefer the CPU-only PyTorch wheel in this project to avoid GPU deps).
 
-If you don't need Essentia native binaries and prefer Poetry for a lighter workflow, use:
-
-```bash
-# Install poetry: https://python-poetry.org/docs/
-poetry install
-```
+If you don't need Essentia native binaries and prefer Poetry for a lighter workflow, run `poetry install` from within a controlled Python environment (e.g., inside a Conda env or a virtualenv). Avoid installing Poetry globally — instead install Poetry into the chosen environment (for example: `mamba run -n songshare-analyze-cpu pip install poetry && mamba run -n songshare-analyze-cpu poetry install`).
 
 VS Code interpreter & pytest imports
 ----------------------------------
