@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
 import logging
+from contextlib import contextmanager, redirect_stdout, redirect_stderr
+import os
 from pathlib import Path
 from typing import Any
 
@@ -24,13 +25,23 @@ def _suppress_essentia_info():
         log.setLevel(prev)
 
 
+@contextmanager
+def _suppress_essentia_output():
+    """Redirect stdout/stderr to /dev/null to suppress messages that come
+    from Essentia's native layer and bypass Python logging."""
+    with open(os.devnull, "w") as devnull:
+        with redirect_stdout(devnull), redirect_stderr(devnull):
+            yield
+
+
 def _essentia_import() -> Any:
     try:
         # Imported lazily to avoid hard runtime dependency for users who don't
         # use Essentia; silence static analysis when types are not available.
-        # Suppress Essentia INFO logs that can be emitted during import (for
-        # example: MusicExtractorSVM messages about missing classifiers).
-        with _suppress_essentia_info():
+        # Suppress Essentia INFO logs and low-level stdout/stderr that can be
+        # emitted during import (for example: MusicExtractorSVM messages about
+        # missing classifiers).
+        with _suppress_essentia_info(), _suppress_essentia_output():
             import essentia  # type: ignore[reportMissingImports]
             import essentia.standard as es  # type: ignore[reportMissingImports]
 
@@ -157,7 +168,7 @@ def extract_tonal(audio_path: Path) -> dict:
 
     try:
         if hasattr(es, "MusicExtractor"):
-            with _suppress_essentia_info():
+            with _suppress_essentia_info(), _suppress_essentia_output():
                 me = es.MusicExtractor()
                 pool = _call_music_extractor(me, audio)
             if pool is not None:
@@ -253,7 +264,7 @@ def extract_semantic(audio_path: Path) -> dict:
     try:
         essentia, es = _essentia_import()
         if hasattr(es, "MusicExtractor"):
-            with _suppress_essentia_info():
+            with _suppress_essentia_info(), _suppress_essentia_output():
                 me = es.MusicExtractor()
                 pool = _call_music_extractor(me, audio_path)
             if pool is not None:
