@@ -61,3 +61,23 @@ def test_analysis_to_id3_genre_not_applied_when_low_confidence():
     }
     tags = analysis_to_id3(analysis)
     assert tags.get("TCON") is None
+
+
+def test_panns_panns_decile_tags_generated():
+    # Create a controlled probs_dict with 10 labels (0.1 .. 1.0) so each
+    # falls into its own decile 0..9 and we can assert tag names/values.
+    probs = {f"g{i}": (i + 1) / 10.0 for i in range(10)}
+    analysis = {
+        "provenance": {"tool": "panns", "version": "0.1"},
+        "analysis": {},
+        "semantic": {"genre": {"top": "g10", "top_confidence": 0.95, "probs_dict": probs}},
+    }
+    tags = analysis_to_id3(analysis)
+
+    # Expect a TXXX tag per label with the decile in the desc
+    for i in range(10):
+        label = f"g{i}"
+        decile = i  # deterministic for this synthetic distribution
+        key = f"TXXX:panns {decile} {label}"
+        assert key in tags
+        assert float(tags[key]) == probs[label]

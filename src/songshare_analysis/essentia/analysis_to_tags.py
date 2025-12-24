@@ -104,6 +104,48 @@ def analysis_to_id3(
                 out["TXXX:genre_top_k"] = json.dumps(top_k, ensure_ascii=False)
             except Exception:
                 out["TXXX:genre_top_k"] = str(top_k)
+
+    # Emit decile-ranked PANNs tags for each label so callers can inspect
+    # per-label confidence at a coarse granularity. Use `probs_dict` when
+    # available (full set of label probabilities) otherwise fall back to
+    # `labels`/`probs` pairs when present.
+    probs_dict = genre.get("probs_dict")
+    if not probs_dict:
+        labels = genre.get("labels") or []
+        probs = genre.get("probs") or []
+        if labels and probs and len(labels) == len(probs):
+            probs_dict = dict(zip(labels, probs, strict=True))
+
+    if isinstance(probs_dict, dict) and probs_dict:
+        try:
+            import bisect
+
+            sorted_probs = sorted(float(x) for x in probs_dict.values())
+            n = len(sorted_probs)
+            for label, prob in probs_dict.items():
+                try:
+                    p = float(prob)
+                except Exception:
+                    continue
+                if n <= 1:
+                    decile = 0
+                else:
+                    # rank: index of this value in the sorted list (0..n-1)
+                    rank = bisect.bisect_right(sorted_probs, p) - 1
+                    decile = int(rank * 10 / n)
+                    if decile < 0:
+                        decile = 0
+                    if decile > 9:
+                        decile = 9
+                key = f"TXXX:panns {decile} {label}"
+                try:
+                    out[key] = str(float(p))
+                except Exception:
+                    out[key] = str(p)
+        except Exception:
+            # Non-fatal: if something goes wrong generating panns tags, skip
+            pass
+
     else:
         # Always write provenance and raw semantic data even when we do not
         # apply a conservative `TCON` value so downstream inspection/debugging
