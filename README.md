@@ -7,6 +7,51 @@ This repository includes a `src/` style Python package layout, minimal example c
 Quick start
 -----------
 
+Environments & dependency workflow
+----------------------------------
+
+This project uses a hybrid approach to manage dependencies and native binaries:
+
+- **Conda / Mamba (`environment.analyze-cpu.yml`)**: the *canonical* environment file for native binaries (Essentia, ffmpeg, CPU-specific PyTorch wheel). Use `mamba` where possible for speed.
+- **Poetry (`pyproject.toml`)**: the canonical Python package manifest for the project (extras, entry points, packaging). Run `poetry install` *inside* the conda env so Poetry uses that interpreter and has access to native libraries.
+- **requirements.txt / requirements-dev.txt**: convenience pip-style files for Docker or pip-only workflows (treat these as *generated* artifacts; update them via Poetry export or `pip freeze` when needed).
+
+Typical setup (recommended):
+
+```bash
+# create/update the conda env (mamba preferred)
+make essentia-env   # alias: make analyze-env
+conda activate songshare-analyze-cpu
+# ensure Poetry is installed inside the env and run it there
+pip install poetry
+poetry install
+```
+
+If you prefer an all-in-one scripted flow (no activation):
+
+```bash
+# Setup script installs Poetry inside the env and runs 'poetry install' there
+./scripts/setup-analyze.sh
+```
+
+Generating pip requirements (optional):
+
+- From Poetry (authoritative for Python deps):
+  ```bash
+  poetry export -f requirements.txt --without-hashes -o requirements.txt
+  ```
+
+- From the installed environment (captures actual pip-installed packages):
+  ```bash
+  mamba run -n songshare-analyze-cpu pip freeze > requirements-analyze.txt
+  ```
+
+CI guidance:
+
+- Use `conda-incubator/setup-miniconda` or `mamba` and the `environment.analyze-cpu.yml` file for Essentia-enabled tests.
+- Run `poetry install` inside that environment (e.g., `mamba run -n songshare-analyze-cpu poetry install`) rather than installing Poetry globally on runners.
+
+
 **Note:** For Essentia and model-based analysis (PANNs) the recommended workflow is
 to use the `songshare-analyze-cpu` conda/mamba environment (see
 `docs/essentia-integration.md`). This environment contains native binaries and

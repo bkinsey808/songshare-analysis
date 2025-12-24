@@ -32,6 +32,59 @@ This document defines how to integrate Essentia into SongShare Analysis as an **
 We include a ready-to-use `environment.analyze-cpu.yml` at the repo root. It prefers `essentia` from `conda-forge` but also provides a pip fallback when a conda package is not available for your platform (in our testing the `conda-forge` wheel was unavailable on some `ubuntu-latest` runners). If the conda package is unavailable the environment will install Essentia via `pip` as a fallback; prefer conda when possible to avoid long native builds. Example usage (mamba recommended):
 
 ```bash
+# create the env (mamba preferred)
+mamba env create -f environment.analyze-cpu.yml
+# or with conda
+conda env create -f environment.analyze-cpu.yml
+```
+
+Environment + Poetry workflow
+
+- Purpose: allow native binaries (Essentia, CPU PyTorch) to be installed by conda while using Poetry for Python packaging and dependency declaration.
+- Recommended flow (two-step):
+  1. Create and activate the `songshare-analyze-cpu` conda env (see above).
+  2. Install Poetry into that activated env and run `poetry install` there so Poetry uses the env's interpreter and native libs:
+
+```bash
+# inside an activated env
+pip install poetry
+poetry install
+```
+
+- One-step scripted alternative (no activation):
+  - `./scripts/setup-analyze.sh` will create the env (via mamba/conda), install Poetry into the env if missing, and run `poetry install` inside the env.
+
+Generating pip-style requirements (when needed)
+
+- Use `poetry export` when you need a reproducible `requirements.txt` derived from the Poetry manifest:
+
+```bash
+poetry export -f requirements.txt --without-hashes -o requirements.txt
+```
+
+- Use `pip freeze` from the running env to capture exact installed packages (useful for Docker images):
+
+```bash
+mamba run -n songshare-analyze-cpu pip freeze > requirements-analyze.txt
+```
+
+CI recommendation
+
+- In CI, prefer setting up the conda env and running Poetry inside it rather than installing Poetry globally: e.g.,
+
+```yaml
+- uses: conda-incubator/setup-miniconda@v2
+  with:
+    environment-file: environment.analyze-cpu.yml
+    activate-environment: songshare-analyze-cpu
+- name: Install project dependencies with Poetry inside env
+  run: mamba run -n songshare-analyze-cpu pip install poetry && mamba run -n songshare-analyze-cpu poetry install
+- name: Run tests
+  run: mamba run -n songshare-analyze-cpu pytest -q
+```
+
+This avoids global Poetry installs on runners and keeps the job self-contained and reproducible. 
+```bash
 # create the env
 mamba env create -f environment.analyze-cpu.yml
 # or with conda

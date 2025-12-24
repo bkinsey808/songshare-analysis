@@ -19,3 +19,19 @@ pip install poetry
 poetry install
 ```
 
+Requirements files (when to update)
+- `requirements.txt` and `requirements-dev.txt` are convenience pip manifests and should be updated **on-demand** for Docker images or pip-only CI.
+- To generate/update them:
+  - From Poetry (authoritative for Python deps):
+
+```bash
+poetry export -f requirements.txt --without-hashes -o requirements.txt
+```
+
+  - From the running conda env (captures exact installed pip packages):
+
+```bash
+mamba run -n songshare-analyze-cpu pip freeze > requirements-analyze.txt
+```
+
+- Commit generated requirements files only when you intend them to be consumed by downstream tooling (Docker images, pip-only CI), and document their origin in the commit message.
