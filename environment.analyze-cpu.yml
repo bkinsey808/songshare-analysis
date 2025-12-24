@@ -1,4 +1,4 @@
-name: songshare-essentia
+name: songshare-analyze-cpu
 channels:
   - conda-forge
 dependencies:

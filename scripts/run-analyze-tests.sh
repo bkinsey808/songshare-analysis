@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Convenience script to install Mambaforge (if missing), create the Essentia conda
-# environment, and run the Essentia-specific tests.
-# Usage: ./scripts/run-essentia-tests.sh [--no-install] [pytest-args]
+# Convenience script to install Mambaforge (if missing), create the analyze conda
+# environment, and run the analyze-specific tests.
+# Usage: ./scripts/run-analyze-tests.sh [--no-install] [pytest-args]
 
 NO_INSTALL=0
 PYTEST_ARGS=()
@@ -38,18 +38,18 @@ if ! command -v mamba >/dev/null 2>&1 && ! command -v conda >/dev/null 2>&1; the
   exit 0
 fi
 
-# Create or update the Essentia environment
-echo "Creating/updating 'songshare-essentia' conda environment..."
+# Create or update the environment
+echo "Creating/updating 'songshare-analyze-cpu' conda environment..."
 if command -v mamba >/dev/null 2>&1; then
-  mamba env create -f environment.essentia.yml || mamba env update -f environment.essentia.yml -n songshare-essentia --prune
+  mamba env create -f environment.analyze-cpu.yml || mamba env update -f environment.analyze-cpu.yml -n songshare-analyze-cpu --prune
 else
-  conda env create -f environment.essentia.yml || conda env update -f environment.essentia.yml -n songshare-essentia --prune
+  conda env create -f environment.analyze-cpu.yml || conda env update -f environment.analyze-cpu.yml -n songshare-analyze-cpu --prune
 fi
 
 # Run tests
-echo "Running Essentia tests in 'songshare-essentia'..."
+echo "Running analyze tests in 'songshare-analyze-cpu'..."
 if command -v mamba >/dev/null 2>&1; then
-  mamba run -n songshare-essentia pytest "${PYTEST_ARGS[@]:-src/songshare_analysis/test_essentia_mp3.py -q}"
+  mamba run -n songshare-analyze-cpu pytest "${PYTEST_ARGS[@]:-src/songshare_analysis/test_essentia_mp3.py -q}"
 else
-  conda run -n songshare-essentia pytest "${PYTEST_ARGS[@]:-src/songshare_analysis/test_essentia_mp3.py -q}"
+  conda run -n songshare-analyze-cpu pytest "${PYTEST_ARGS[@]:-src/songshare_analysis/test_essentia_mp3.py -q}"
 fi

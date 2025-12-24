@@ -70,17 +70,24 @@ def test_panns_panns_decile_tags_generated():
     analysis = {
         "provenance": {"tool": "panns", "version": "0.1"},
         "analysis": {},
-        "semantic": {"genre": {"top": "g10", "top_confidence": 0.95, "probs_dict": probs}},
+        "semantic": {
+            "genre": {"top": "g10", "top_confidence": 0.95, "probs_dict": probs}
+        },
     }
     tags = analysis_to_id3(analysis)
 
-    # Expect a TXXX tag per label with the decile in the desc
+    # Expect we have a TXXX:panns <label> key per label with the decile
+    # as its value (highest-prob label first - g9 here).
+    panns_keys = [k for k in tags.keys() if k.startswith("TXXX:panns ")]
+    assert panns_keys, "No panns tags found"
+    # First key should correspond to the highest-prob label g9
+    first_label = panns_keys[0].split(" ", 2)[2]
+    assert first_label == "g9"
+    # Each label should have a key with its decile value
     for i in range(10):
-        label = f"g{i}"
-        decile = i  # deterministic for this synthetic distribution
-        key = f"TXXX:panns {decile} {label}"
+        key = f"TXXX:panns g{i}"
         assert key in tags
-        assert float(tags[key]) == probs[label]
+        assert tags[key] == str(i)
 
 
 def test_panns_panns_tags_sorted_by_prob():
@@ -88,7 +95,9 @@ def test_panns_panns_tags_sorted_by_prob():
     analysis = {
         "provenance": {"tool": "panns", "version": "0.1"},
         "analysis": {},
-        "semantic": {"genre": {"top": "b", "top_confidence": 0.95, "probs_dict": probs}},
+        "semantic": {
+            "genre": {"top": "b", "top_confidence": 0.95, "probs_dict": probs}
+        },
     }
     tags = analysis_to_id3(analysis)
 
@@ -98,6 +107,30 @@ def test_panns_panns_tags_sorted_by_prob():
     # First panns key should be for 'b' (0.9)
     first_label = panns_keys[0].split(" ", 2)[2]
     assert first_label == "b"
-    # Verify descending order of probs
-    probs_in_tags = [float(tags[k]) for k in panns_keys]
-    assert probs_in_tags == sorted(probs_in_tags, reverse=True)
+    # Verify values are the deciles computed from the sidecar helper
+    from songshare_analysis.essentia.analysis_to_tags import compute_panns_deciles
+
+    genre = {"probs_dict": probs}
+    rows = compute_panns_deciles(genre)
+    decile_map = {r["label"]: str(r["decile"]) for r in rows}
+    for k in panns_keys:
+        label = k.split(" ", 2)[2]
+        assert tags[k] == decile_map[label]
+
+
+def test_compute_panns_deciles():
+    # Controlled 10-label distribution where probs 0.1..1.0 map to deciles 0..9
+    probs = {f"g{i}": (i + 1) / 10.0 for i in range(10)}
+    genre = {"probs_dict": probs}
+
+    from songshare_analysis.essentia.analysis_to_tags import compute_panns_deciles
+
+    rows = compute_panns_deciles(genre)
+    assert isinstance(rows, list)
+    # Should have one row per label and be sorted descending by prob
+    assert len(rows) == 10
+    probs_in_rows = [r["prob"] for r in rows]
+    assert probs_in_rows == sorted(probs_in_rows, reverse=True)
+    # Verify deciles present and deterministic
+    for r in rows:
+        assert 0 <= r["decile"] <= 9

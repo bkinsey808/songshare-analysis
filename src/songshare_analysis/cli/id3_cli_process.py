@@ -48,9 +48,27 @@ def _maybe_run_analysis(f: Path, args: ProcessArgs, logger: Logger) -> None:
         return
     try:
         analysis = essentia_extractor.extract_basic(f)
+        # Add semantic model outputs (genre/mood/instruments) if available
+        try:
+            sem = essentia_extractor.extract_semantic(f)
+            # Merge semantic block into analysis conservatively
+            if sem and isinstance(sem, dict):
+                analysis.update(sem)
+        except Exception:
+            # Non-fatal: keep basic analysis even if semantic inference fails
+            pass
+
         sidecar = essentia_extractor.write_analysis_sidecar(f, analysis)
         if getattr(args, "verbose", False):
             logger.info("Wrote Essentia sidecar: %s", str(sidecar))
+            # Also print the proposed ID3 tags derived from this analysis so
+            # users running with `--verbose` can inspect the exact TXXX frames
+            # that would be proposed if they later choose `--apply-tags`.
+            try:
+                proposed = analysis_to_id3(analysis)
+                _print_proposed_metadata(proposed)
+            except Exception:
+                logger.exception("Failed to compute/print proposed metadata")
     except Exception as exc:  # pragma: no cover - runtime
         logger.exception("Essentia analysis failed for %s: %s", str(f), exc)
 

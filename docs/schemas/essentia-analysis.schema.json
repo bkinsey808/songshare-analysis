@@ -69,7 +69,7 @@
                     "type": "object",
                     "properties": {
                         "key": {
-                            "type": "string"
+                            "type": ["string", "null"]
                         },
                         "key_strength": {
                             "type": [
@@ -77,6 +77,27 @@
                                 "null"
                             ]
                         }
+                    },
+                    "additionalProperties": true
+                },
+                "chroma": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "mfcc": {
+                    "type": "object",
+                    "properties": {
+                        "mean": {"type": "array", "items": {"type": "number"}},
+                        "std": {"type": "array", "items": {"type": "number"}}
+                    },
+                    "additionalProperties": true
+                },
+                "vocals": {
+                    "type": "object",
+                    "properties": {
+                        "presence": {"type": ["number", "null"]},
+                        "median_midi": {"type": ["integer", "null"]},
+                        "median_note": {"type": ["string", "null"]}
                     },
                     "additionalProperties": true
                 },

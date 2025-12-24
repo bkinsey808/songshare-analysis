@@ -64,4 +64,4 @@ echo "Mambaforge installed to ${PREFIX_DIR}. Run:"
 echo "  export PATH=\"${PREFIX_DIR}/bin:\$PATH\""
 echo "  source ~/.bashrc or add the export to your shell rc file"
 
-echo "You can now run: mamba env create -f environment.essentia.yml"
+echo "You can now run: mamba env create -f environment.analyze-cpu.yml"

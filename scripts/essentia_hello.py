@@ -112,7 +112,7 @@ def main():
         print("  - Conda (recommended): use the provided environment file (see docs)")
         print("  - Example (mamba):")
         print(
-            "      mamba create -n songshare-essentia -c conda-forge "
+            "      mamba create -n songshare-analyze-cpu -c conda-forge "
             "python=3.11 essentia"
         )
         print("  - Or: pip install essentia (if a compatible wheel exists)")

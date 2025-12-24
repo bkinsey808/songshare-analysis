@@ -216,6 +216,7 @@ We include the JSON Schema at `docs/schemas/essentia-analysis.schema.json` and p
   - `TXXX:beats` / `TXXX:onsets` ← small arrays only; otherwise omit and rely on sidecar
   - Per-field `TXXX:<field>_confidence` frames should accompany model-dependent writes.
 - Always include `TXXX:provenance` referencing the extractor + version + params.
+- Persist coarse-grained PANNs per-label decile info into the sidecar at `semantic.genre.panns_deciles` so callers can inspect the same `TXXX:panns` style data without writing numeric probabilities into ID3 frames (TXXX tags contain labels/deciles only; values are formatted as `panns: <label>: <decile>` in `TXXX:panns`).
 
 ---
 

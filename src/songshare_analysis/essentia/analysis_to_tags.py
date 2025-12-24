@@ -9,26 +9,9 @@ DEFAULT_THRESHOLDS = {
 }
 
 
-def analysis_to_id3(
-    analysis: dict[str, Any], thresholds: dict | None = None
-) -> dict[str, str]:
-    """Convert a compact analysis dict into an ID3 tag mapping.
-
-    This follows the conservative write rules: only write scalars with sufficient
-    confidence and store provenance in `TXXX:provenance`.
-    """
-    th = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
-    out: dict[str, str] = {}
-
-    prov = analysis.get("provenance") or {}
-    try:
-        out["TXXX:provenance"] = json.dumps(prov, separators=",", ensure_ascii=False)
-    except Exception:
-        out["TXXX:provenance"] = str(prov)
-
-    a = analysis.get("analysis") or {}
-    rhythm = a.get("rhythm") or {}
-    tonal = a.get("tonal") or {}
+def _write_basic_tags(out: dict, analysis_block: dict, th: dict) -> None:
+    rhythm = analysis_block.get("rhythm") or {}
+    tonal = analysis_block.get("tonal") or {}
 
     bpm = rhythm.get("bpm")
     if isinstance(bpm, (int, float)):
@@ -36,12 +19,13 @@ def analysis_to_id3(
 
     key = tonal.get("key")
     key_strength = tonal.get("key_strength")
-    if isinstance(key, str):
-        if key_strength is None or float(key_strength) >= th["confidence"]:
-            out["TKEY"] = key
+    if isinstance(key, str) and (
+        key_strength is None or float(key_strength) >= th["confidence"]
+    ):
+        out["TKEY"] = key
 
     # Add tuning/pitch info if present and confident
-    tuning = a.get("tuning") or {}
+    tuning = analysis_block.get("tuning") or {}
     if tuning:
         cents = tuning.get("cents_offset")
         ref = tuning.get("reference_hz")
@@ -50,10 +34,12 @@ def analysis_to_id3(
         if ref is not None:
             out["TXXX:tuning_ref_hz"] = str(ref)
 
-    # Semantic -> Genre mapping
-    semantic = analysis.get("semantic") or {}
-    genre = semantic.get("genre") or {}
 
+def _write_genre_core(out: dict, genre: dict, th: dict) -> bool:
+    """Write core genre tags (TCON and genre_top_* TXXXs).
+
+    Returns True if we wrote a core TCON value, False otherwise.
+    """
     top = genre.get("top")
     top_conf = genre.get("top_confidence")
 
@@ -66,13 +52,6 @@ def analysis_to_id3(
             return False
 
     def _is_genre_label(label: str) -> bool:
-        """Return True if `label` looks like a real music genre rather than
-        a broad descriptor (e.g., "Music", "Song", "Singing", "Speech").
-
-        This is intentionally conservative: we blacklist common generic labels
-        and otherwise allow the label to be written. The list can be extended
-        in future or replaced by a configurable whitelist.
-        """
         if not isinstance(label, str):
             return False
         lb = label.strip().lower()
@@ -104,11 +83,13 @@ def analysis_to_id3(
                 out["TXXX:genre_top_k"] = json.dumps(top_k, ensure_ascii=False)
             except Exception:
                 out["TXXX:genre_top_k"] = str(top_k)
+        return True
 
-    # Emit decile-ranked PANNs tags for each label so callers can inspect
-    # per-label confidence at a coarse granularity. Use `probs_dict` when
-    # available (full set of label probabilities) otherwise fall back to
-    # `labels`/`probs` pairs when present.
+    # No core genre written
+    return False
+
+
+def _emit_panns_labels(out: dict, genre: dict) -> None:
     probs_dict = genre.get("probs_dict")
     if not probs_dict:
         labels = genre.get("labels") or []
@@ -116,48 +97,70 @@ def analysis_to_id3(
         if labels and probs and len(labels) == len(probs):
             probs_dict = dict(zip(labels, probs, strict=True))
 
-    if isinstance(probs_dict, dict) and probs_dict:
-        try:
-            import bisect
+    if not isinstance(probs_dict, dict) or not probs_dict:
+        return
 
-            # Precompute sorted probs ascending for decile computation
-            sorted_probs = sorted(float(x) for x in probs_dict.values())
-            n = len(sorted_probs)
-            # Iterate labels sorted by probability descending so insertion order
-            # in the output dict reflects highest-first ordering.
-            for label, prob in sorted(
-                probs_dict.items(),
-                key=lambda x: float(x[1]),
-                reverse=True,
-            ):
-                try:
-                    p = float(prob)
-                except Exception:
-                    continue
-                if n <= 1:
+    try:
+        import bisect
+
+        sorted_probs = sorted(float(x) for x in probs_dict.values())
+        n = len(sorted_probs)
+        for label, prob in sorted(
+            probs_dict.items(), key=lambda x: float(x[1]), reverse=True
+        ):
+            try:
+                p = float(prob)
+            except Exception:
+                continue
+            if n <= 1:
+                decile = 0
+            else:
+                rank = bisect.bisect_right(sorted_probs, p) - 1
+                decile = int(rank * 10 / n)
+                if decile < 0:
                     decile = 0
-                else:
-                    # rank: index of this value in the ascending sorted list (0..n-1)
-                    rank = bisect.bisect_right(sorted_probs, p) - 1
-                    decile = int(rank * 10 / n)
-                    if decile < 0:
-                        decile = 0
-                    if decile > 9:
-                        decile = 9
-                key = f"TXXX:panns {decile} {label}"
-                try:
-                    out[key] = str(float(p))
-                except Exception:
-                    out[key] = str(p)
-        except Exception:
-            # Non-fatal: if something goes wrong generating panns tags, skip
-            pass
+                if decile > 9:
+                    decile = 9
+            key = f"TXXX:panns {label}"
+            out[key] = str(decile)
+    except Exception:
+        return
 
+
+def analysis_to_id3(
+    analysis: dict[str, Any], thresholds: dict | None = None
+) -> dict[str, str]:
+    """Convert a compact analysis dict into an ID3 tag mapping.
+
+    This follows the conservative write rules: only write scalars with sufficient
+    confidence and store provenance in `TXXX:provenance`.
+    """
+    th = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
+    out: dict[str, str] = {}
+
+    prov = analysis.get("provenance") or {}
+    try:
+        out["TXXX:provenance"] = json.dumps(prov, separators=",", ensure_ascii=False)
+    except Exception:
+        out["TXXX:provenance"] = str(prov)
+
+    a = analysis.get("analysis") or {}
+    _write_basic_tags(out, a, th)
+
+    # Semantic -> Genre mapping
+    semantic = analysis.get("semantic") or {}
+    genre = semantic.get("genre") or {}
+
+    written_core = _write_genre_core(out, genre, th)
+
+    if isinstance(genre, dict) and genre and written_core:
+        # If we wrote a core genre value, also emit PANNs per-label frames
+        _emit_panns_labels(out, genre)
     else:
-        # Always write provenance and raw semantic data even when we do not
-        # apply a conservative `TCON` value so downstream inspection/debugging
-        # can see what models produced. We write raw top/top_confidence/top_k
-        # into TXXX fields when we choose not to set the core TCON frame.
+        # Always write provenance and raw semantic data for downstream
+        # inspection even when conservative rules prevented TCON from being set.
+        top = genre.get("top")
+        top_conf = genre.get("top_confidence")
         if top:
             try:
                 out["TXXX:genre_top"] = str(top)
@@ -175,3 +178,47 @@ def analysis_to_id3(
                 out["TXXX:genre_top_k"] = str(top_k)
 
     return out
+
+
+def compute_panns_deciles(genre: dict) -> list[dict]:
+    """Return a list of per-label decile info computed from a PANNs genre dict.
+
+    Each entry is a dict with keys: `label`, `prob`, and `decile`. The list is
+    sorted by probability descending so it's convenient to inspect top labels.
+    """
+    probs_dict = genre.get("probs_dict")
+    if not probs_dict:
+        labels = genre.get("labels") or []
+        probs = genre.get("probs") or []
+        if labels and probs and len(labels) == len(probs):
+            probs_dict = dict(zip(labels, probs, strict=True))
+
+    if not isinstance(probs_dict, dict) or not probs_dict:
+        return []
+
+    try:
+        import bisect
+
+        sorted_probs = sorted(float(x) for x in probs_dict.values())
+        n = len(sorted_probs)
+        rows: list[dict] = []
+        for label, prob in sorted(
+            probs_dict.items(), key=lambda x: float(x[1]), reverse=True
+        ):
+            try:
+                p = float(prob)
+            except Exception:
+                continue
+            if n <= 1:
+                decile = 0
+            else:
+                rank = bisect.bisect_right(sorted_probs, p) - 1
+                decile = int(rank * 10 / n)
+                if decile < 0:
+                    decile = 0
+                if decile > 9:
+                    decile = 9
+            rows.append({"label": label, "prob": p, "decile": decile})
+        return rows
+    except Exception:
+        return []

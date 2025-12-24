@@ -119,7 +119,22 @@ def _print_proposed_metadata(proposed: Mapping[str, object]) -> None:
         if isinstance(v, (bytes, bytearray)):
             print(f"  {k}: <binary data {len(v)} bytes>")  # noqa: T201
             continue
+        # If we have a list, pretty-print it as a block under the key (e.g.,
+        # `TXXX:panns:` then one line per value). Preserve ordering.
+        if isinstance(v, list):
+            print(f"  {k}:")  # noqa: T201
+            for item in v:
+                s = str(item)
+                if len(s) > 200:
+                    s = s[:197] + "..."
+                print(f"    {s}")  # noqa: T201
+            continue
         s = str(v)
+        # If the value is an empty string, print the key alone (no trailing
+        # colon/space) so TXXX frames like `TXXX:panns 0 Foo` appear neat.
+        if s == "":
+            print(f"  {k}")  # noqa: T201
+            continue
         if len(s) > 200:
             s = s[:197] + "..."
         print(f"  {k}: {s}")  # noqa: T201

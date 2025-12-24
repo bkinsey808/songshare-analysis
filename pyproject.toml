@@ -29,6 +29,7 @@ select = ["E", "F", "W", "I", "C", "B", "PLW"]
   "FBT001", "E501", "UP031", "ANN401", "TC001"
 ]
 "src/**" = ["TC003"]
+"src/songshare_analysis/genre/panns.py" = ["C901"]
 
 [tool.isort]
 profile = "black"

@@ -216,7 +216,13 @@ def _add_txxx_frames(
     for k, v in proposed.items():
         if k.startswith("TXXX:"):
             desc = k.split("TXXX:", 1)[1]
-            tags.add(txxx_ctor(encoding=3, desc=desc, text=[v]))
+            # Allow lists of values so a single `TXXX:<desc>` can contain
+            # multiple entries (e.g., multiple PANNs labels/deciles).
+            if isinstance(v, list):
+                # `v` should be a list of str
+                tags.add(txxx_ctor(encoding=3, desc=desc, text=list(v)))
+            else:
+                tags.add(txxx_ctor(encoding=3, desc=desc, text=[v]))
 
 
 def _save_tags_with_fallback(tags: ID3Like, path: Path) -> None:

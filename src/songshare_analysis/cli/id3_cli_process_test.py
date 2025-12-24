@@ -184,3 +184,83 @@ def test_cli_id3_fetch_metadata(
         "recording_title" in r.getMessage() or "Found" in r.getMessage()
         for r in caplog.records
     )
+
+
+def test_analyze_includes_semantic_genre(monkeypatch: Any, tmp_path: Path) -> None:
+    """If --analyze is used and semantic inference is available, the sidecar
+    should include a `semantic.genre` block from the model."""
+
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    written: list[dict] = []
+
+    def fake_write_sidecar(path: Path, analysis: dict) -> Path:
+        written.append(analysis)
+        # Return a plausible sidecar path
+        return path.with_suffix(path.suffix + ".analysis.json")
+
+    # Replace IO with fakes
+    monkeypatch.setattr(id3_process, "read_id3", _fake_read_id3)
+
+    def fake_extract_basic(p: Path) -> dict:
+        return {"analysis": {}}
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    # Provide a fake semantic result via extract_semantic
+    def fake_semantic(p: Path) -> dict:
+        return {"semantic": {"genre": {"top": "Rock", "top_confidence": 0.83}}}
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_semantic", fake_semantic
+    )
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "write_analysis_sidecar", fake_write_sidecar
+    )
+
+    main(["id3", "test_data/dummy.mp3", "--analyze"])  # should call our fakes
+
+    assert written, "Sidecar write should have been called"
+    analysis = written[0]
+    assert "semantic" in analysis and "genre" in analysis["semantic"]
+    assert analysis["semantic"]["genre"]["top"] == "Rock"
+
+
+def test_verbose_prints_proposed_tags_on_analyze(
+    monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """When `--analyze --verbose` is used, the CLI should print proposed tags."""
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    monkeypatch.setattr(id3_process, "read_id3", _fake_read_id3)
+
+    def fake_extract_basic(p: Path) -> dict:
+        return {"analysis": {}}
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    def fake_semantic(p: Path) -> dict:
+        return {"semantic": {"genre": {"top": "Funk", "top_confidence": 0.95}}}
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_semantic", fake_semantic
+    )
+
+    def fake_write_sidecar(path: Path, analysis: dict) -> Path:
+        # write a fake sidecar path and capture the analysis for inspection
+        return path.with_suffix(path.suffix + ".analysis.json")
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "write_analysis_sidecar", fake_write_sidecar
+    )
+
+    # Run CLI with --analyze --verbose and capture stdout
+    main(["id3", "test_data/dummy.mp3", "--analyze", "--verbose"])
+    out = capsys.readouterr().out
+
+    assert "Proposed metadata:" in out
+    assert "TXXX:provenance" in out or "TXXX:genre_top" in out

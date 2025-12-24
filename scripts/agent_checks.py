@@ -2,7 +2,8 @@
 """Small static checks useful for the agent and humans.
 
 This script intentionally avoids external dependencies so it can run inside
-minimal venvs and in CI shells before dev dependencies are installed.
+minimal environments (for example, a lightweight Python interpreter) and in
+CI shells before dev dependencies are installed.
 
 Checks performed:
 - Long files (prefer <400 lines)
@@ -128,9 +129,10 @@ def main(argv: List[str] | None = None) -> int:
         print("✅ Agent quick checks passed.")
         return 0
     print(
-        "\nPlease address the issues above. For full checks run inside the"
-        " project venv:\n"
-        "  make venv && source .venv/bin/activate\n"
+        "\nPlease address the issues above. For full checks run inside a Conda/Mamba\n"
+        "environment (recommended):\n"
+        "  make essentia-env && conda activate songshare-analyze-cpu\n"
+        "  pip install -e .\n"
         "  make lint && make typecheck && make test"
     )
     return 2

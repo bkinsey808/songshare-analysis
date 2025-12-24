@@ -250,6 +250,65 @@ def extract_sections(audio_path: Path) -> dict:
     return {"sections": sections}
 
 
+def _try_panns_semantic(audio_path: Path) -> dict | None:
+    """Attempt to derive `semantic.genre` using PANNs and normalize output.
+
+    Returns a dict suitable for merging into the sidecar
+    (e.g. `{"semantic": {"genre": ...}}`).
+    or `None` on any failure so callers can fall back to other extractors.
+    """
+    try:
+        from songshare_analysis.essentia.analysis_to_tags import (
+            compute_panns_deciles,  # type: ignore
+        )
+        from songshare_analysis.genre.panns import infer_genre_panns  # type: ignore
+    except Exception:
+        return None
+
+    try:
+        res = infer_genre_panns(audio_path)
+    except Exception:
+        return None
+
+    # Persist computed decile info into the returned genre dict so the
+    # analysis sidecar includes the same coarse-grained information we
+    # emit as `TXXX:panns` tags (useful for inspection without converting
+    # to ID3).
+    try:
+        res["panns_deciles"] = compute_panns_deciles(res)
+    except Exception:
+        # Non-fatal: proceed without deciles
+        pass
+
+    # Normalize and sort per-label probability structures so that the
+    # JSON sidecar preserves a descending order by probability. This
+    # makes inspection easier and ensures deterministic ordering.
+    try:
+        probs_dict = res.get("probs_dict")
+        if not probs_dict:
+            labels = res.get("labels") or []
+            probs = res.get("probs") or []
+            if labels and probs and len(labels) == len(probs):
+                probs_dict = dict(zip(labels, probs, strict=True))
+
+        if isinstance(probs_dict, dict) and probs_dict:
+            sorted_items = sorted(
+                probs_dict.items(), key=lambda kv: float(kv[1]), reverse=True
+            )
+            # Overwrite with a dict built in sorted order (insertion order
+            # preserved by Python dicts) so the JSON sidecar shows highest
+            # first.
+            res["probs_dict"] = dict(sorted_items)
+            # Keep labels/probs arrays in sync for convenience
+            res["labels"] = [k for k, _ in sorted_items]
+            res["probs"] = [v for _, v in sorted_items]
+    except Exception:
+        # Non-fatal
+        pass
+
+    return {"semantic": {"genre": res}}
+
+
 def extract_semantic(audio_path: Path) -> dict:
     """Run model-based semantic classifiers (genre, mood, instruments).
 
@@ -258,18 +317,9 @@ def extract_semantic(audio_path: Path) -> dict:
     for merging into the analysis sidecar under the `semantic` key.
     """
     # Try PANNs first (preferred multi-label tagger)
-    try:
-        from songshare_analysis.genre.panns import infer_genre_panns  # type: ignore
-
-        try:
-            res = infer_genre_panns(audio_path)
-            return {"semantic": {"genre": res}}
-        except Exception:
-            # If inference failed, fall through to MusicExtractor
-            pass
-    except Exception:
-        # panns not installed; fall back to MusicExtractor below
-        pass
+    panns_result = _try_panns_semantic(audio_path)
+    if panns_result is not None:
+        return panns_result
 
     # Fallback: Essentia MusicExtractor (if available and yields genre fields)
     try:

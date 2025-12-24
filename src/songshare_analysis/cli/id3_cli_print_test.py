@@ -55,3 +55,21 @@ def test_cli_id3_prints_tags_with_mocked_data(
     assert any("Tags:" in r.getMessage() for r in caplog.records)
     assert any("TIT2" in r.getMessage() for r in caplog.records)
     assert any("TPE1" in r.getMessage() for r in caplog.records)
+
+
+def test_print_proposed_metadata_empty_value_no_colon(capsys):
+    # Directly test pretty-printer for the empty-value TXXX case
+    from songshare_analysis.cli.id3_cli_print import _print_proposed_metadata
+
+    proposed = {
+        "TXXX:panns 0 Speech synthesizer": "",
+        "TIT2": "Short Title",
+    }
+    _print_proposed_metadata(proposed)
+    out = capsys.readouterr().out
+
+    # Empty-valued TXXX should be printed without a trailing colon/space
+    assert "  TXXX:panns 0 Speech synthesizer\n" in out
+    assert "  TXXX:panns 0 Speech synthesizer: " not in out
+    # Normal tags still show colon + value
+    assert "  TIT2: Short Title\n" in out

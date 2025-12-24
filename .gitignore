@@ -2,12 +2,11 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-.venv/
 .ruff_cache/
 .mccabe_cache/
 .pytest_cache/
-venv/
-
+# venvs are not used in this repository; prefer the 'songshare-analyze-cpu' conda/mamba
+# environment for Essentia/model-based workflows.
 # IDE
 .vscode/
 pip-wheel-metadata/

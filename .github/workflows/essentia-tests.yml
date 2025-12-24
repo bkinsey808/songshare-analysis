@@ -13,8 +13,8 @@ jobs:
       - name: Set up conda/mamba environment
         uses: conda-incubator/setup-miniconda@v2
         with:
-          environment-file: environment.essentia.yml
-          activate-environment: songshare-essentia
+          environment-file: environment.analyze-cpu.yml
+          activate-environment: songshare-analyze-cpu
           auto-update-conda: true
           use-mamba: true
 
