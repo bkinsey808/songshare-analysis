@@ -120,9 +120,16 @@ def analysis_to_id3(
         try:
             import bisect
 
+            # Precompute sorted probs ascending for decile computation
             sorted_probs = sorted(float(x) for x in probs_dict.values())
             n = len(sorted_probs)
-            for label, prob in probs_dict.items():
+            # Iterate labels sorted by probability descending so insertion order
+            # in the output dict reflects highest-first ordering.
+            for label, prob in sorted(
+                probs_dict.items(),
+                key=lambda x: float(x[1]),
+                reverse=True,
+            ):
                 try:
                     p = float(prob)
                 except Exception:
@@ -130,7 +137,7 @@ def analysis_to_id3(
                 if n <= 1:
                     decile = 0
                 else:
-                    # rank: index of this value in the sorted list (0..n-1)
+                    # rank: index of this value in the ascending sorted list (0..n-1)
                     rank = bisect.bisect_right(sorted_probs, p) - 1
                     decile = int(rank * 10 / n)
                     if decile < 0:

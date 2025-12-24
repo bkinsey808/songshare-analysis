@@ -81,3 +81,23 @@ def test_panns_panns_decile_tags_generated():
         key = f"TXXX:panns {decile} {label}"
         assert key in tags
         assert float(tags[key]) == probs[label]
+
+
+def test_panns_panns_tags_sorted_by_prob():
+    probs = {"a": 0.1, "b": 0.9, "c": 0.5}
+    analysis = {
+        "provenance": {"tool": "panns", "version": "0.1"},
+        "analysis": {},
+        "semantic": {"genre": {"top": "b", "top_confidence": 0.95, "probs_dict": probs}},
+    }
+    tags = analysis_to_id3(analysis)
+
+    # Extract panns tag keys in insertion order and ensure highest-prob label first
+    panns_keys = [k for k in tags.keys() if k.startswith("TXXX:panns ")]
+    assert panns_keys, "No panns tags found"
+    # First panns key should be for 'b' (0.9)
+    first_label = panns_keys[0].split(" ", 2)[2]
+    assert first_label == "b"
+    # Verify descending order of probs
+    probs_in_tags = [float(tags[k]) for k in panns_keys]
+    assert probs_in_tags == sorted(probs_in_tags, reverse=True)
