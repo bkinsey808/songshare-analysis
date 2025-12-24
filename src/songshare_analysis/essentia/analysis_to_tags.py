@@ -50,4 +50,33 @@ def analysis_to_id3(
         if ref is not None:
             out["TXXX:tuning_ref_hz"] = str(ref)
 
+    # Semantic -> Genre mapping
+    semantic = analysis.get("semantic") or {}
+    genre = semantic.get("genre") or {}
+
+    top = genre.get("top")
+    top_conf = genre.get("top_confidence")
+
+    def _genre_confident(conf):
+        if conf is None:
+            return True
+        try:
+            return float(conf) >= th["confidence"]
+        except Exception:
+            return False
+
+    if top and _genre_confident(top_conf):
+        out["TCON"] = str(top)
+        try:
+            out["TXXX:genre_top_confidence"] = str(float(top_conf))
+        except Exception:
+            pass
+
+        top_k = genre.get("top_k")
+        if top_k:
+            try:
+                out["TXXX:genre_top_k"] = json.dumps(top_k, ensure_ascii=False)
+            except Exception:
+                out["TXXX:genre_top_k"] = str(top_k)
+
     return out

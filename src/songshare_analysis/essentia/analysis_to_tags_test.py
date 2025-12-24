@@ -16,3 +16,24 @@ def test_analysis_to_id3_basic():
     assert tags["TKEY"] == "C major"
     assert "TXXX:provenance" in tags
     assert tags.get("TXXX:tuning_ref_hz") == "440.0"
+
+
+def test_analysis_to_id3_genre_applied_when_confident():
+    analysis = {
+        "provenance": {"tool": "panns", "version": "0.1"},
+        "analysis": {},
+        "semantic": {"genre": {"top": "Folk", "top_confidence": 0.9}},
+    }
+    tags = analysis_to_id3(analysis)
+    assert tags.get("TCON") == "Folk"
+    assert "TXXX:genre_top_confidence" in tags
+
+
+def test_analysis_to_id3_genre_not_applied_when_low_confidence():
+    analysis = {
+        "provenance": {"tool": "panns", "version": "0.1"},
+        "analysis": {},
+        "semantic": {"genre": {"top": "Folk", "top_confidence": 0.1}},
+    }
+    tags = analysis_to_id3(analysis)
+    assert tags.get("TCON") is None

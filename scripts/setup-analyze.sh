@@ -35,3 +35,22 @@ else
   ${MCONDA} run -n "${ENV_NAME}" pip install poetry || echo "Failed to install Poetry into the env; please install it manually."
   ${MCONDA} run -n "${ENV_NAME}" poetry install || echo "'poetry install' failed; please run it manually inside the env."
 fi
+
+# Optionally prefetch PANNs model checkpoints (default: enabled).
+# This will instantiate the PANNs tagger once to trigger checkpoint download
+# into ~/panns_data/. Set PREFETCH_PANNS=0 to skip this step.
+if [ "${PREFETCH_PANNS:-1}" -eq 1 ]; then
+  echo "Prefetching PANNs model checkpoint into ~/panns_data/ (this may be large)..."
+  ${MCONDA} run -n "${ENV_NAME}" python - <<'PY'
+import sys
+try:
+    from panns_inference import AudioTagging
+    AudioTagging(device='cpu')
+    print('PANNs checkpoint ready')
+except Exception as e:
+    print('PANNs prefetch failed:', e, file=sys.stderr)
+    sys.exit(1)
+PY
+else
+  echo "Skipping PANNs prefetch (PREFETCH_PANNS=0)"
+fi
