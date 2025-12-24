@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
-from contextlib import contextmanager, redirect_stdout, redirect_stderr
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -27,11 +27,22 @@ def _suppress_essentia_info():
 
 @contextmanager
 def _suppress_essentia_output():
-    """Redirect stdout/stderr to /dev/null to suppress messages that come
-    from Essentia's native layer and bypass Python logging."""
-    with open(os.devnull, "w") as devnull:
-        with redirect_stdout(devnull), redirect_stderr(devnull):
-            yield
+    """Silence low-level native output by re-routing file descriptors 1 and
+    2 (stdout and stderr) to /dev/null. This catches C/C++-level messages
+    that bypass Python's sys.stdout/sys.stderr wrappers."""
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    saved_stdout = os.dup(1)
+    saved_stderr = os.dup(2)
+    try:
+        os.dup2(devnull_fd, 1)
+        os.dup2(devnull_fd, 2)
+        yield
+    finally:
+        os.dup2(saved_stdout, 1)
+        os.dup2(saved_stderr, 2)
+        os.close(saved_stdout)
+        os.close(saved_stderr)
+        os.close(devnull_fd)
 
 
 def _essentia_import() -> Any:
