@@ -119,44 +119,41 @@ def infer_genre_panns(
     }
 
 
-def _normalize_panns_output(
-    res: Any, model: Any
-) -> tuple[list[str], list[float]]:  # noqa: C901 - handles multiple PANNs output shapes
-    """Normalize different PANNs return formats into (labels, probs).
+def _from_labels_probs_dict(r: dict) -> tuple[list[str], list[float]] | None:
+    if "labels" in r and "probs" in r:
+        labels = list(r.get("labels", []))
+        probs = [float(p) for p in r.get("probs", [])]
+        return labels, probs
+    return None
 
-    Accepts dicts with 'labels'/'probs' or 'probs_dict', dicts with
-    'clipwise_output', or tuple/list returns like (clipwise_output, embedding).
-    """
 
-    def _from_labels_probs_dict(r: dict) -> tuple[list[str], list[float]] | None:
-        if "labels" in r and "probs" in r:
-            labels = list(r.get("labels", []))
-            probs = [float(p) for p in r.get("probs", [])]
-            return labels, probs
+def _from_probs_dict(r: dict) -> tuple[list[str], list[float]] | None:
+    if "probs_dict" in r:
+        probs_dict = r.get("probs_dict", {}) or {}
+        labels = list(probs_dict.keys())
+        probs = [float(probs_dict[k]) for k in labels]
+        return labels, probs
+    return None
+
+
+def _from_clipwise_array(arr: Any, model: Any) -> tuple[list[str], list[float]] | None:
+    try:
+        import numpy as np  # type: ignore
+
+        if isinstance(arr, np.ndarray) and hasattr(model, "labels"):
+            if getattr(arr, "ndim", 0) > 1 and arr.shape[0] == 1:
+                arr = arr[0]
+            if getattr(arr, "ndim", 0) == 1:
+                labels = list(model.labels)
+                probs = [float(x) for x in arr]
+                return labels, probs
+    except Exception:
         return None
+    return None
 
-    def _from_probs_dict(r: dict) -> tuple[list[str], list[float]] | None:
-        if "probs_dict" in r:
-            probs_dict = r.get("probs_dict", {}) or {}
-            labels = list(probs_dict.keys())
-            probs = [float(probs_dict[k]) for k in labels]
-            return labels, probs
-        return None
 
-    def _from_clipwise_array(arr: Any) -> tuple[list[str], list[float]] | None:
-        try:
-            import numpy as np  # type: ignore
-
-            if isinstance(arr, np.ndarray) and hasattr(model, "labels"):
-                if getattr(arr, "ndim", 0) > 1 and arr.shape[0] == 1:
-                    arr = arr[0]
-                if getattr(arr, "ndim", 0) == 1:
-                    labels = list(model.labels)
-                    probs = [float(x) for x in arr]
-                    return labels, probs
-        except Exception:
-            return None
-        return None
+def _normalize_panns_output(res: Any, model: Any) -> tuple[list[str], list[float]]:
+    """Normalize different PANNs return formats into (labels, probs)."""
 
     # Dict shaped outputs
     if isinstance(res, dict):
@@ -168,13 +165,13 @@ def _normalize_panns_output(
             return v
         # clipwise_output: numpy array of shape (num_labels,)
         if "clipwise_output" in res:
-            v = _from_clipwise_array(res.get("clipwise_output"))
+            v = _from_clipwise_array(res.get("clipwise_output"), model)
             if v:
                 return v
 
     # tuple/list outputs like (clipwise_output, embedding)
     if isinstance(res, (tuple, list)):
-        v = _from_clipwise_array(res[0])
+        v = _from_clipwise_array(res[0], model)
         if v:
             return v
 

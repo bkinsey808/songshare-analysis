@@ -105,8 +105,8 @@ def _emit_panns_labels(out: dict, genre: dict) -> None:
 
         sorted_probs = sorted(float(x) for x in probs_dict.values())
         n = len(sorted_probs)
-        for label, prob in sorted(
-            probs_dict.items(), key=lambda x: float(x[1]), reverse=True
+        for rank, (label, prob) in enumerate(
+            sorted(probs_dict.items(), key=lambda x: float(x[1]), reverse=True)
         ):
             try:
                 p = float(prob)
@@ -115,12 +115,17 @@ def _emit_panns_labels(out: dict, genre: dict) -> None:
             if n <= 1:
                 decile = 0
             else:
-                rank = bisect.bisect_right(sorted_probs, p) - 1
-                decile = int(rank * 10 / n)
+                rank_idx = bisect.bisect_right(sorted_probs, p) - 1
+                decile = int(rank_idx * 10 / n)
                 if decile < 0:
                     decile = 0
                 if decile > 9:
                     decile = 9
+            # Insert a rank-prefixed key first so insertion order reflects
+            # highest-prob label first (e.g., "TXXX:panns 0 g9")
+            key_rank = f"TXXX:panns {rank} {label}"
+            out[key_rank] = str(decile)
+            # Also provide a label-keyed entry for direct lookup (e.g., "TXXX:panns g9")
             key = f"TXXX:panns {label}"
             out[key] = str(decile)
     except Exception:

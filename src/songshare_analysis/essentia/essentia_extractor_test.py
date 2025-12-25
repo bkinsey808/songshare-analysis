@@ -13,7 +13,7 @@ def test_extract_semantic_adds_panns_deciles(monkeypatch, tmp_path: Path):
     }
 
     # Ensure the panns module exists and monkeypatch its infer_genre_panns
-    import songshare_analysis.genre.panns as panns_mod
+    import songshare_analysis.panns.panns as panns_mod
 
     monkeypatch.setattr(panns_mod, "infer_genre_panns", lambda p: fake_res)
 

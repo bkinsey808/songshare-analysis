@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from songshare_analysis.genre.panns import infer_genre_panns
+from songshare_analysis.panns.panns import infer_genre_panns
 
 
 class FakeModelPathFirst:
@@ -36,7 +36,7 @@ class FakeModelArrayOnly:
 
 def test_infer_genre_uses_path_behavior(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "songshare_analysis.genre.panns._import_panns",
+        "songshare_analysis.panns.panns._import_panns",
         lambda: FakeModelPathFirst,
     )
 
@@ -47,7 +47,7 @@ def test_infer_genre_uses_path_behavior(monkeypatch, tmp_path):
 
 def test_infer_genre_falls_back_to_array(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "songshare_analysis.genre.panns._import_panns",
+        "songshare_analysis.panns.panns._import_panns",
         lambda: FakeModelArrayOnly,
     )
 

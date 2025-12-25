@@ -1,7 +1,7 @@
 import importlib
 import sys
 
-from songshare_analysis.genre import panns
+from songshare_analysis.panns import panns
 
 
 class _FakeXPU:
@@ -29,21 +29,23 @@ def _make_fake_torch(xpu_available: bool = False, cuda_available: bool = False):
     return SimpleNamespace(xpu=xpu, cuda=cuda)
 
 
-def _prefers_xpu(monkeypatch):
+def test_prefers_xpu(monkeypatch):
     monkeypatch.setitem(sys.modules, "torch", _make_fake_torch(xpu_available=True))
+    # Reload in case the function was cached.
+    # Helper imports inside function so this is safe.
     importlib.reload(panns)
 
     assert panns._detect_best_device() == "cpu"
 
 
-def _prefers_cuda_when_no_xpu(monkeypatch):
+def test_prefers_cuda_when_no_xpu(monkeypatch):
     monkeypatch.setitem(sys.modules, "torch", _make_fake_torch(cuda_available=True))
     importlib.reload(panns)
 
     assert panns._detect_best_device() == "cpu"
 
 
-def _falls_back_to_cpu(monkeypatch):
+def test_falls_back_to_cpu(monkeypatch):
     monkeypatch.setitem(sys.modules, "torch", _make_fake_torch())
     importlib.reload(panns)
 

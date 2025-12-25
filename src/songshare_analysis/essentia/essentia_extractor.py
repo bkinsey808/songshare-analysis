@@ -261,7 +261,7 @@ def _try_panns_semantic(audio_path: Path) -> dict | None:
         from songshare_analysis.essentia.analysis_to_tags import (
             compute_panns_deciles,  # type: ignore
         )
-        from songshare_analysis.genre.panns import infer_genre_panns  # type: ignore
+        from songshare_analysis.panns.panns import infer_genre_panns  # type: ignore
     except Exception:
         return None
 

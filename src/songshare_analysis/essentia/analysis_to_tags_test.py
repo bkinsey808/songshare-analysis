@@ -81,7 +81,8 @@ def test_panns_panns_decile_tags_generated():
     panns_keys = [k for k in tags.keys() if k.startswith("TXXX:panns ")]
     assert panns_keys, "No panns tags found"
     # First key should correspond to the highest-prob label g9
-    first_label = panns_keys[0].split(" ", 2)[2]
+    parts = panns_keys[0].split(" ", 2)
+    first_label = parts[2] if len(parts) > 2 else parts[-1]
     assert first_label == "g9"
     # Each label should have a key with its decile value
     for i in range(10):
@@ -105,7 +106,8 @@ def test_panns_panns_tags_sorted_by_prob():
     panns_keys = [k for k in tags.keys() if k.startswith("TXXX:panns ")]
     assert panns_keys, "No panns tags found"
     # First panns key should be for 'b' (0.9)
-    first_label = panns_keys[0].split(" ", 2)[2]
+    parts = panns_keys[0].split(" ", 2)
+    first_label = parts[2] if len(parts) > 2 else parts[-1]
     assert first_label == "b"
     # Verify values are the deciles computed from the sidecar helper
     from songshare_analysis.essentia.analysis_to_tags import compute_panns_deciles
@@ -114,7 +116,8 @@ def test_panns_panns_tags_sorted_by_prob():
     rows = compute_panns_deciles(genre)
     decile_map = {r["label"]: str(r["decile"]) for r in rows}
     for k in panns_keys:
-        label = k.split(" ", 2)[2]
+        parts = k.split(" ", 2)
+        label = parts[2] if len(parts) > 2 else parts[-1]
         assert tags[k] == decile_map[label]
 
 
