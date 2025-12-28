@@ -20,7 +20,7 @@ Typical setup (recommended):
 
 ```bash
 # create/update the conda env (mamba preferred)
-make essentia-env   # alias: make analyze-env
+make analyze-env   # alias: make essentia-env (creates 'songshare-analyze-cpu')
 conda activate songshare-analyze-cpu
 # ensure Poetry is installed inside the env and run it there
 pip install poetry
@@ -62,7 +62,7 @@ Create a Python virtual environment and install dependencies with Poetry (recomm
 
 ```bash
 # Create and activate the conda env (mamba preferred)
-make essentia-env
+make analyze-env   # alias: make essentia-env
 conda activate songshare-analyze-cpu
 # Install Poetry into the activated env if needed and run it there
 pip install poetry
@@ -74,9 +74,8 @@ If you prefer to use Conda/Mamba (recommended for Essentia and model-based analy
 
 ```bash
 # Create the analyze-enabled conda env (mamba preferred). The Makefile supports both names:
-#   make essentia-env  # original name
-#   make analyze-env   # alias (recommended clearer name)
-make essentia-env
+#   make analyze-env   # recommended (alias: make essentia-env)
+make analyze-env
 conda activate songshare-analyze-cpu
 pip install -e .
 ```

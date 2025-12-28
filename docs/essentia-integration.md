@@ -99,7 +99,9 @@ poetry install
 
 # verify
 python -c "import essentia; print('essentia', essentia.__version__)"
-```
+
+# (Alternative via Makefile)
+# make analyze-env   # alias: make essentia-env```
 
 We also provide `scripts/setup-analyze.sh` as a small helper to create the env and show activation instructions.
 
@@ -117,10 +119,10 @@ export PATH="$HOME/mambaforge/bin:$PATH"
 Makefile convenience targets
 
 - `make install-mamba` — downloads and installs Mambaforge (user-local) using the helper script.
-- `make essentia-env` — creates or updates the `songshare-analyze-cpu` conda env using mamba (or conda) and prints instructions to activate it.
+- `make analyze-env` — creates or updates the `songshare-analyze-cpu` conda env using mamba (or conda) (alias: `make essentia-env`) and prints instructions to activate it.
 - `make poetry-env` — runs `poetry install` in the current interpreter (handy once the conda env is active).
 
-If you'd like I can add a small GitHub Actions job to exercise `make essentia-env` (non-Docker) in CI as a draft optional job.
+If you'd like I can add a small GitHub Actions job to exercise `make analyze-env` (non-Docker) in CI as a draft optional job.
 ### Using Poetry with Essentia
 
 Poetry remains the project's default packaging tool. The recommended flow is:
@@ -281,7 +283,7 @@ songshare-analyze id3 --analyze --apply-tags ./music/01-MySong.mp3
 
 ```bash
 # create or update the env
-make essentia-env
+make analyze-env   # alias: make essentia-env
 
 # or explicitly with mamba
 mamba env create -f environment.analyze-cpu.yml || mamba env update -f environment.analyze-cpu.yml -n songshare-analyze-cpu --prune

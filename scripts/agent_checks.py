@@ -131,7 +131,7 @@ def main(argv: List[str] | None = None) -> int:
     print(
         "\nPlease address the issues above. For full checks run inside a Conda/Mamba\n"
         "environment (recommended):\n"
-        "  make essentia-env && conda activate songshare-analyze-cpu\n"
+        "  make analyze-env && conda activate songshare-analyze-cpu\n"
         "  pip install -e .\n"
         "  make lint && make typecheck && make test"
     )

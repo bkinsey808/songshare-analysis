@@ -16,7 +16,7 @@ This repository prefers a Conda/Mamba-based development environment for Essentia
 - Preferred flows:
   - If `poetry` is available: run `poetry install` and use `poetry run <command>`
   - Otherwise: create the recommended conda env and use it for analysis & tests:
-    - `make essentia-env && conda activate songshare-analyze-cpu` and then `pip install -e .`
+    - `make analyze-env && conda activate songshare-analyze-cpu` and then `pip install -e .`
 
 Always remind the user to activate `songshare-analyze-cpu` (or use `poetry run`) before running linting, type checks, or pytest when Essentia/model tests are required. If running commands on a remote VM/devcontainer, make sure you are inside that VM when invoking them.
 
@@ -44,7 +44,7 @@ Follow the repository's milestone preamble style when reporting progress. Provid
 If any check fails, report the failing step, the exact command to reproduce locally (including how to activate `songshare-analyze-cpu`), and a short plan to fix it.
 
 # Example local commands (human-run)
-- Create Conda env: `make essentia-env && conda activate songshare-analyze-cpu`
+- Create Conda env: `make analyze-env && conda activate songshare-analyze-cpu`
 - Install dev deps: `make install` (or `poetry install`)
 - Run lint: `make lint`
 - Run typecheck: `make typecheck`
