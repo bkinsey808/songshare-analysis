@@ -264,3 +264,161 @@ def test_verbose_prints_proposed_tags_on_analyze(
 
     assert "Proposed metadata:" in out
     assert "TXXX:provenance" in out or "TXXX:genre_top" in out
+
+
+def test_summary_includes_rhythm_stats(
+    monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Ensure the summary printed at the end includes rhythm stats."""
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    monkeypatch.setattr(id3_process, "read_id3", _fake_read_id3)
+
+    def fake_extract_basic(p: Path) -> dict:
+        return {
+            "analysis": {"rhythm": {"beats": [i * 0.5 for i in range(8)], "bpm": 120.0}}
+        }
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor,
+        "write_analysis_sidecar",
+        lambda p, a: p.with_suffix(p.suffix + ".analysis.json"),
+    )
+
+    # Run CLI (analyze triggers detection and summary)
+    main(["id3", "test_data/dummy.mp3", "--analyze"])
+    out = capsys.readouterr().out
+
+    assert "Rhythm detections:" in out
+    assert "human=" in out and "clicktrack=" in out
+
+
+def test_skip_rhythm_when_tags_present(monkeypatch: Any) -> None:
+    """If rhythm tags already present, do not run rhythm detection."""
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    # Return existing tags that include a rhythm_timing marker
+    def fake_read_id3(path: Path) -> dict:
+        return {"path": str(path), "tags": {"TXXX:rhythm_timing": "human"}, "info": {}}
+
+    monkeypatch.setattr(id3_process, "read_id3", fake_read_id3)
+
+    # fake extract_basic returns beats
+    def fake_extract_basic(p: Path) -> dict:
+        return {
+            "analysis": {"rhythm": {"beats": [i * 0.5 for i in range(8)], "bpm": 120.0}}
+        }
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    # Ensure rhythm detector is NOT called
+    def should_not_be_called(beats):
+        raise AssertionError("Rhythm detector was called despite existing tags")
+
+    import songshare_analysis.essentia.rhythm as rhythm_mod
+
+    monkeypatch.setattr(
+        rhythm_mod, "detect_rhythm_timing_from_beats", should_not_be_called
+    )
+
+    captured = {}
+
+    def fake_write_sidecar(path: Path, analysis: dict) -> Path:
+        captured["analysis"] = analysis
+        return path.with_suffix(path.suffix + ".analysis.json")
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "write_analysis_sidecar", fake_write_sidecar
+    )
+
+    main(["id3", "test_data/dummy.mp3", "--analyze"])
+
+    assert "analysis" in captured
+    rhythm_block = captured["analysis"].get("analysis", {}).get("rhythm", {})
+    assert "timing" not in rhythm_block
+
+
+def test_verbose_includes_rhythm_tags_on_analyze(
+    monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """When `--analyze --verbose` is used and beats are present,
+    rhythm tags should be proposed."""
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    monkeypatch.setattr(id3_process, "read_id3", _fake_read_id3)
+
+    def fake_extract_basic(p: Path) -> dict:
+        return {
+            "analysis": {
+                "rhythm": {"beats": [i * 0.5 for i in range(16)], "bpm": 120.0}
+            }
+        }
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    def fake_write_sidecar(path: Path, analysis: dict) -> Path:
+        return path.with_suffix(path.suffix + ".analysis.json")
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "write_analysis_sidecar", fake_write_sidecar
+    )
+
+    # Run CLI with --analyze --verbose and capture stdout
+    main(["id3", "test_data/dummy.mp3", "--analyze", "--verbose"])
+    out = capsys.readouterr().out
+
+    assert "Proposed metadata:" in out
+    assert "TXXX:rhythm_timing" in out
+
+
+def test_apply_tags_proposes_and_applies_rhythm(
+    monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """When applying analysis-derived tags,
+    rhythm tags should be proposed and applied."""
+    import songshare_analysis.cli.id3_cli_apply as id3_apply
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    monkeypatch.setattr(id3_process, "read_id3", _fake_read_id3)
+
+    def fake_extract_basic(p: Path) -> dict:
+        return {
+            "analysis": {
+                "rhythm": {"beats": [i * 0.5 for i in range(16)], "bpm": 120.0}
+            }
+        }
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    def fake_write_sidecar(path: Path, analysis: dict) -> Path:
+        return path.with_suffix(path.suffix + ".analysis.json")
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "write_analysis_sidecar", fake_write_sidecar
+    )
+
+    captured: dict = {}
+
+    def fake_apply(f: Path, proposed: dict, logger: Any) -> bool:
+        captured["proposed"] = proposed
+        return True
+
+    monkeypatch.setattr(id3_apply, "_apply_metadata_safe", fake_apply)
+
+    # Run CLI with analyze+apply+yes
+    main(["id3", "test_data/dummy.mp3", "--analyze", "--apply-tags", "--yes"])
+
+    out = capsys.readouterr().out
+    assert "TXXX:rhythm_timing" in out
+    assert "proposed" in captured
+    assert "TXXX:rhythm_timing" in captured["proposed"]

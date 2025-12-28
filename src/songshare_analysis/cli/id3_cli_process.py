@@ -8,12 +8,7 @@ from songshare_analysis.essentia import analysis_to_id3, essentia_extractor
 from songshare_analysis.id3_io import read_id3
 
 from .id3_cli_apply import _maybe_propose_and_apply
-from .id3_cli_apply_helpers import (
-    _apply_metadata_safe,
-    _compute_delta,
-    _confirm_apply,
-    _verify_apply_result,
-)
+from .id3_cli_apply_helpers import _compute_delta, _confirm_apply, _verify_apply_result
 from .id3_cli_print import (
     _fetch_and_print_musicbrainz,
     _print_basic_info,
@@ -42,28 +37,73 @@ class ProcessArgs(Protocol):
     yes: bool | int | None
 
 
-def _maybe_run_analysis(f: Path, args: ProcessArgs, logger: Logger) -> None:
-    """Run Essentia analysis and write sidecar when requested."""
+def _write_basic_sidecar(f: Path, logger: Logger, verbose: bool | None = False) -> dict:
+    """Extract basic and semantic analysis and write a sidecar.
+
+    This consolidates duplicated logic used when rhythm timing detection is
+    skipped (tags already present) or when the full analysis path is used.
+    """
+    analysis = essentia_extractor.extract_basic(f)
+    try:
+        sem = essentia_extractor.extract_semantic(f)
+        if sem and isinstance(sem, dict):
+            analysis.update(sem)
+    except Exception:
+        pass
+    sidecar = essentia_extractor.write_analysis_sidecar(f, analysis)
+    if verbose:
+        logger.info("Wrote Essentia sidecar: %s", str(sidecar))
+    return analysis
+
+
+def _maybe_run_analysis(
+    f: Path, args: ProcessArgs, logger: Logger, tags: dict | None = None
+) -> None:
+    """Run Essentia analysis and write sidecar when requested.
+
+    If rhythm tags are already present on the file (for example,
+    `TXXX:rhythm_timing`, `TXXX:rhythm_human`, or `TXXX:rhythm_machine`),
+    skip beat timing detection to avoid overwriting user-set tags.
+    """
     if not getattr(args, "analyze", False):
         return
-    try:
-        analysis = essentia_extractor.extract_basic(f)
-        # Add semantic model outputs (genre/mood/instruments) if available
+
+    # If tags indicate rhythm timing is already present, skip rhythm detection
+    existing_rhythm_keys = {
+        "TXXX:rhythm_timing",
+        "TXXX:rhythm_human",
+        "TXXX:rhythm_machine",
+    }
+    if tags and any(k in tags for k in existing_rhythm_keys):
+        if getattr(args, "verbose", False):
+            logger.info("Skipping rhythm timing detection; tags already present")
         try:
-            sem = essentia_extractor.extract_semantic(f)
-            # Merge semantic block into analysis conservatively
-            if sem and isinstance(sem, dict):
-                analysis.update(sem)
+            _write_basic_sidecar(f, logger, getattr(args, "verbose", False))
+            return
+        except Exception as exc:  # pragma: no cover - runtime
+            logger.exception("Essentia analysis failed for %s: %s", str(f), exc)
+            return
+
+    # Normal path: run full analysis including rhythm timing detection
+    try:
+        analysis = _write_basic_sidecar(f, logger, getattr(args, "verbose", False))
+
+        # Optionally augment analysis with rhythm timing detection
+        try:
+            from songshare_analysis.essentia import rhythm as rhythm_mod
+
+            beats = analysis.get("analysis", {}).get("rhythm", {}).get("beats", [])
+            if beats:
+                timing = rhythm_mod.detect_rhythm_timing_from_beats(beats)
+                # Merge timing results under the rhythm block for downstream use
+                analysis.setdefault("analysis", {})
+                analysis["analysis"].setdefault("rhythm", {})
+                analysis["analysis"]["rhythm"]["timing"] = timing
         except Exception:
-            # Non-fatal: keep basic analysis even if semantic inference fails
+            # Non-fatal: keep basic analysis even if rhythm detection fails
             pass
 
-        sidecar = essentia_extractor.write_analysis_sidecar(f, analysis)
         if getattr(args, "verbose", False):
-            logger.info("Wrote Essentia sidecar: %s", str(sidecar))
-            # Also print the proposed ID3 tags derived from this analysis so
-            # users running with `--verbose` can inspect the exact TXXX frames
-            # that would be proposed if they later choose `--apply-tags`.
             try:
                 proposed = analysis_to_id3(analysis)
                 _print_proposed_metadata(proposed)
@@ -81,6 +121,23 @@ def _apply_analysis_tags(
         analysis = essentia_extractor.read_sidecar(f)
         if analysis is None:
             analysis = essentia_extractor.extract_basic(f)
+
+        # Optionally augment analysis with rhythm timing detection if beats are
+        # present (so applying tags behaves like running `--analyze`). This
+        # mirrors the augmentation performed by `_maybe_run_analysis`.
+        try:
+            from songshare_analysis.essentia import rhythm as rhythm_mod
+
+            beats = analysis.get("analysis", {}).get("rhythm", {}).get("beats", [])
+            if beats:
+                timing = rhythm_mod.detect_rhythm_timing_from_beats(beats)
+                analysis.setdefault("analysis", {})
+                analysis["analysis"].setdefault("rhythm", {})
+                analysis["analysis"]["rhythm"]["timing"] = timing
+        except Exception:
+            # Non-fatal: keep basic analysis even if rhythm detection fails
+            pass
+
         proposed = analysis_to_id3(analysis)
         delta = _compute_delta(proposed, tags)
         if not delta:
@@ -95,7 +152,11 @@ def _apply_analysis_tags(
             print("Aborted; no changes made.")  # noqa: T201
             return {"applied": False, "embed": None}
 
-        applied_ok = _apply_metadata_safe(f, proposed, logger)
+        # Import at call-time so tests can monkeypatch `_apply_metadata_safe` on
+        # the `id3_cli_apply` module and have the change picked up here.
+        from .id3_cli_apply import _apply_metadata_safe as _apply_func
+
+        applied_ok = _apply_func(f, proposed, logger)
         applied = False
         if applied_ok:
             verified = _verify_apply_result(f, proposed, logger)
@@ -113,6 +174,9 @@ def _process_file(
 ) -> dict[str, bool | None]:
     """Process a single file and return the result dict from
     `_maybe_propose_and_apply` or a default when nothing happened.
+
+    Returns a dict that may include `rhythm_timing` when analysis ran and
+    produced timing results.
     """
     try:
         info = read_id3(f)
@@ -132,12 +196,15 @@ def _process_file(
         return {"applied": False, "embed": None}
 
     # If requested, run Essentia analysis and write a sidecar
-    _maybe_run_analysis(f, args, logger)
+    timing = _maybe_run_analysis(f, args, logger, tags)
 
     # If apply-tags requested, convert analysis to ID3 and propose/apply
     if getattr(args, "apply_tags", False):
-        return _apply_analysis_tags(f, args, logger, tags)
-
+        res = _apply_analysis_tags(f, args, logger, tags)
+        # propagate rhythm timing info if present
+        if timing is not None:
+            res["rhythm_timing"] = timing
+        return res
     # If the file already contains explicit MusicBrainz IDs, skip the
     # lookup entirely and do not propose MusicBrainz-derived metadata. This
     # avoids unnecessary network calls and prevents overriding existing MB
@@ -168,56 +235,120 @@ def _process_file(
     return _maybe_propose_and_apply(f, args, logger, mb_info, tags)
 
 
+def _process_files_and_aggregate(
+    files: list[Path],
+    args: ProcessArgs,
+    logger: Logger,
+) -> dict:
+    """Process files and return a counters dict summarizing results.
+
+    This function contains the bulk of the per-file branching and aggregation
+    so that `_process_all_files` itself stays short and easy to reason about.
+    """
+    counters = {
+        "files_processed": 0,
+        "tags_applied": 0,
+        "covers_embedded": 0,
+        "covers_failed": 0,
+        "files_skipped": 0,
+        "covers_already_present": 0,
+        "covers_download_attempted": 0,
+        "covers_download_success": 0,
+        "tit2_changed": 0,
+        # rhythm stats
+        "rhythm_detected": 0,
+        "rhythm_human": 0,
+        "rhythm_clicktrack": 0,
+        "rhythm_uncertain": 0,
+        "beat_cv_sum": 0.0,
+        "beat_cv_count": 0,
+    }
+
+    def _file_result_to_counters(res: dict) -> dict:
+        """Convert a single file processing result into per-file counter increments."""
+        c = {
+            "tags_applied": 1 if res.get("applied") else 0,
+            "covers_embedded": 1 if res.get("embed") is True else 0,
+            "covers_failed": 1 if res.get("embed") is False else 0,
+            "files_skipped": 1 if res.get("skipped") else 0,
+            "covers_already_present": 1 if res.get("cover_already_present") else 0,
+            "covers_download_attempted": (
+                1 if res.get("cover_download_attempted") else 0
+            ),
+            "covers_download_success": 1 if res.get("cover_download_success") else 0,
+            "tit2_changed": 1 if res.get("tit2_changed") else 0,
+            "rhythm_detected": 0,
+            "rhythm_human": 0,
+            "rhythm_clicktrack": 0,
+            "rhythm_uncertain": 0,
+            "beat_cv_sum": 0.0,
+            "beat_cv_count": 0,
+        }
+        timing = res.get("rhythm_timing")
+        if isinstance(timing, dict):
+            c["rhythm_detected"] = 1
+            label = timing.get("label")
+            if label == "human":
+                c["rhythm_human"] = 1
+            elif label == "clicktrack":
+                c["rhythm_clicktrack"] = 1
+            else:
+                c["rhythm_uncertain"] = 1
+            beat_cv = timing.get("beat_cv")
+            try:
+                if beat_cv is not None:
+                    c["beat_cv_sum"] = float(beat_cv)
+                    c["beat_cv_count"] = 1
+            except Exception:
+                pass
+        return c
+
+    for f in files:
+        counters["files_processed"] += 1
+        res = _process_file(f, args, logger)
+        inc = _file_result_to_counters(res)
+        for k, v in inc.items():
+            counters[k] += v
+
+    return counters
+
+
 def _process_all_files(
     files: list[Path],
     args: ProcessArgs,
     logger: Logger,
-) -> tuple[int, int, int, int, int, int, int, int, int]:
-    """Process a list of files and return counters (processed, applied,
-    embedded, failed, skipped, already_present, download_attempted,
-    download_success, tit2_changed).
-    """
-    files_processed = 0
-    tags_applied = 0
-    covers_embedded = 0
-    covers_failed = 0
-    files_skipped = 0
-    covers_already_present = 0
-    covers_download_attempted = 0
-    covers_download_success = 0
-    tit2_changed = 0
+) -> tuple[
+    int, int, int, int, int, int, int, int, int, int, int, int, int, float | None
+]:
+    """Process a list of files and return counters.
 
-    for f in files:
-        files_processed += 1
-        res = _process_file(f, args, logger)
-        if res.get("applied"):
-            tags_applied += 1
-        emb = res.get("embed")
-        if emb is True:
-            covers_embedded += 1
-        elif emb is False:
-            covers_failed += 1
-        if res.get("skipped"):
-            files_skipped += 1
-        if res.get("cover_already_present"):
-            covers_already_present += 1
-        if res.get("cover_download_attempted"):
-            covers_download_attempted += 1
-        if res.get("cover_download_success"):
-            covers_download_success += 1
-        if res.get("tit2_changed"):
-            tit2_changed += 1
+    Returns a tuple with the existing counters followed by rhythm stats:
+    (processed, applied, embedded, failed, skipped, already_present,
+     download_attempted, download_success, tit2_changed,
+     rhythm_detected, rhythm_human, rhythm_clicktrack, rhythm_uncertain,
+     avg_beat_cv_or_None)
+    """
+    counters = _process_files_and_aggregate(files, args, logger)
+
+    avg_beat_cv: float | None = None
+    if counters["beat_cv_count"] > 0:
+        avg_beat_cv = counters["beat_cv_sum"] / counters["beat_cv_count"]
 
     return (
-        files_processed,
-        tags_applied,
-        covers_embedded,
-        covers_failed,
-        files_skipped,
-        covers_already_present,
-        covers_download_attempted,
-        covers_download_success,
-        tit2_changed,
+        counters["files_processed"],
+        counters["tags_applied"],
+        counters["covers_embedded"],
+        counters["covers_failed"],
+        counters["files_skipped"],
+        counters["covers_already_present"],
+        counters["covers_download_attempted"],
+        counters["covers_download_success"],
+        counters["tit2_changed"],
+        counters["rhythm_detected"],
+        counters["rhythm_human"],
+        counters["rhythm_clicktrack"],
+        counters["rhythm_uncertain"],
+        avg_beat_cv,
     )
 
 
@@ -290,6 +421,11 @@ def handle_id3_command(args: ProcessArgs, logger: Logger) -> None:
         covers_download_attempted,
         covers_download_success,
         tit2_changed,
+        rhythm_detected,
+        rhythm_human,
+        rhythm_clicktrack,
+        rhythm_uncertain,
+        avg_beat_cv,
     ) = _process_all_files(files, args, logger)
 
     # Emit a concise summary with skipped files counter
@@ -320,6 +456,9 @@ def handle_id3_command(args: ProcessArgs, logger: Logger) -> None:
         f"Covers already present: {covers_already_present}\n"
         f"Cover downloads attempted: {covers_download_attempted}\n"
         f"Cover downloads successful: {covers_download_success}\n"
-        f"TIT2 changed: {tit2_changed}"
+        f"TIT2 changed: {tit2_changed}\n"
+        f"Rhythm detections: {rhythm_detected} (human={rhythm_human}, "
+        f"clicktrack={rhythm_clicktrack}, uncertain={rhythm_uncertain})\n"
+        + (f"Average beat_cv: {avg_beat_cv:.6f}\n" if avg_beat_cv is not None else "")
     )
     print(summary_str)  # noqa: T201

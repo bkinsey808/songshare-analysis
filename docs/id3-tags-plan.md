@@ -112,8 +112,8 @@ Below are suggested mappings showing the ID3 frame on the left and the Essentia-
 - **TXXX:onsets** → `onsets` (onset timestamps — JSON sidecar)
 - **TXXX:beat_std_seconds** → `beat_std` (standard deviation of inter-beat intervals in seconds; numeric TXXX or JSON)
 - **TXXX:beat_cv** → `beat_cv` (coefficient of variation (std/mean) for tempo-independent variability; numeric TXXX or JSON)
-- **TXXX:rhythm_timing** → `rhythm_timing` (categorical: `"human"` | `"clicktrack"` | `"uncertain"` with `rhythm_timing_confidence` numeric; TXXX or JSON)
-- **TXXX:sections** → `sections` (segment boundaries & labels — JSON sidecar)
+- **TXXX:rhythm_timing** → `rhythm_timing` (categorical: `"human"` | `"clicktrack"` | `"uncertain"` with `rhythm_timing_confidence` numeric; TXXX or JSON)- **TXXX:rhythm_human** → `rhythm_human` (per-track numeric confidence 0–1, written when human-like timing is detected; TXXX)
+- **TXXX:rhythm_machine** → `rhythm_machine` (per-track numeric confidence 0–1, written when clicktrack/quantized timing is detected; TXXX)- **TXXX:sections** → `sections` (segment boundaries & labels — JSON sidecar)
 - **TXXX:mfccs** → `mfccs` (per-frame coefficients or aggregated stats — JSON sidecar)
 - **TXXX:chroma** → `chroma` (chromagram or summaries — JSON sidecar)
 - **TXXX:chords** → `chords` (chord sequence/histogram — JSON sidecar)
@@ -166,6 +166,8 @@ Examples (ID3 frame → example value) 🧾
 - **TXXX:beat_std_seconds** → `0.024` (seconds) — standard deviation of inter-beat intervals; low values indicate quantized click-like timing.
 - **TXXX:beat_cv** → `0.002` (unitless std/mean) — coefficient of variation; heuristic thresholds: CV < 0.005 → click-like, CV > 0.02 → human-like (dataset-dependent).
 - **TXXX:rhythm_timing** → `"human"` (string) with `rhythm_timing_confidence=0.92` — timing classification label derived from beat metrics and optional quantization checks.
+- **TXXX:rhythm_human** → `0.92` (0–1) — per-track confidence for human-like timing (TXXX)
+- **TXXX:rhythm_machine** → `0.08` (0–1) — per-track confidence for machine/quantized timing (TXXX)
 - **TXXX:sections** → `[{"start":0.0,"end":30.5,"label":"intro"},{"start":30.5,"end":90.0,"label":"verse"},...]` — segmentation boundaries & labels (JSON).
 - **TXXX:mfccs** → `mean: [-12.3, -6.1, 0.2, ...]` (or full per-frame matrix) — aggregated MFCC stats in tag or full matrix in sidecar.
 - **TXXX:chroma** → `{"C":0.12,"C#":0.05,...}` — chroma histogram or summary.
@@ -201,6 +203,15 @@ Notes on thresholds & presence:
     "rhythm_type": {"label":"swing","confidence":0.88}
   }
 }
+```
+
+Quick usage example (write tags):
+
+```python
+from songshare_analysis.essentia.rhythm import detect_rhythm_timing, write_rhythm_id3_tags
+
+analysis = detect_rhythm_timing('/path/to/song.mp3')
+write_rhythm_id3_tags('/path/to/song.mp3', analysis)
 ```
 
   - ID3/TXXX (compact): `TXXX:rhythm_type = "swing"`, `TXXX:meter = "6/8"`, `TXXX:swing_ratio = 1.65` (write numeric/label TXXX only when confidence >= configurable threshold, default 0.6).

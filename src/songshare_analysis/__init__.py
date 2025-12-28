@@ -13,4 +13,6 @@ except Exception:  # pragma: no cover - import-time fallback
     # Fallback for development when package is not installed
     __version__ = "0.1.0"
 
-__all__ = ["__version__"]
+from .essentia import rhythm
+
+__all__ = ["__version__", "rhythm"]

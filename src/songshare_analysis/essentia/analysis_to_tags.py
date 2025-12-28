@@ -182,7 +182,41 @@ def analysis_to_id3(
             except Exception:
                 out["TXXX:genre_top_k"] = str(top_k)
 
+    # Rhythm timing -> compact TXXX tags
+    _write_rhythm_tags(out, a)
+
     return out
+
+
+def _write_rhythm_tags(out: dict, a: dict) -> None:
+    """Write compact rhythm TXXX tags into ``out`` if timing info exists."""
+    r = a.get("rhythm") if isinstance(a, dict) else {}
+    timing = (r or {}).get("timing")
+    if not timing or not isinstance(timing, dict):
+        return
+    try:
+        label = timing.get("label")
+        conf = timing.get("confidence")
+        quant = timing.get("quant_score")
+        beat_cv = timing.get("beat_cv")
+        if label is not None:
+            out["TXXX:rhythm_timing"] = str(label)
+        if conf is not None:
+            out["TXXX:rhythm_timing_confidence"] = str(float(conf))
+        # convenience presence frames
+        if label == "human":
+            out["TXXX:rhythm_human"] = str(float(conf or 0.0))
+            out["TXXX:rhythm_machine"] = "0"
+        elif label == "clicktrack":
+            out["TXXX:rhythm_machine"] = str(float(conf or 0.0))
+            out["TXXX:rhythm_human"] = "0"
+        if beat_cv is not None:
+            out["TXXX:beat_cv"] = str(float(beat_cv))
+        if quant is not None:
+            out["TXXX:quant_score"] = str(float(quant))
+    except Exception:
+        # Non-fatal: don't fail tag conversion for rhythm metadata
+        pass
 
 
 def compute_panns_deciles(genre: dict) -> list[dict]:

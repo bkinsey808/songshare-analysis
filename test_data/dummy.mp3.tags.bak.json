@@ -1,9 +1,12 @@
 {
-  "path": "dummy.mp3",
+  "path": "test_data/dummy.mp3",
   "tags": {
-    "TIT2": "T",
-    "TPE1": "A",
-    "TALB": "L"
+    "TSSE": "Lavf62.3.100",
+    "TXXX:provenance": "{}"
   },
-  "info": {}
+  "info": {
+    "length": 0.5746938775510204,
+    "bitrate": 32003,
+    "sample_rate": 22050
+  }
 }
