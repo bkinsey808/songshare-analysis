@@ -15,8 +15,8 @@ Use this agent for any Python code changes in this repo. For large design change
 This repository prefers a Conda/Mamba-based development environment for Essentia and model-based analysis.
 - Preferred flows:
   - If `poetry` is available: run `poetry install` and use `poetry run <command>`
-  - Otherwise: create the recommended conda env and use it for analysis & tests:
-    - `make analyze-env && conda activate songshare-analyze-cpu` and then `pip install -e .`
+  - Otherwise: create and activate the recommended Conda env and install project deps:
+    - `make songshare-analyze-cpu && conda activate songshare-analyze-cpu && pip install -e .`
 
 Always remind the user to activate `songshare-analyze-cpu` (or use `poetry run`) before running linting, type checks, or pytest when Essentia/model tests are required. If running commands on a remote VM/devcontainer, make sure you are inside that VM when invoking them.
 
@@ -44,12 +44,13 @@ Follow the repository's milestone preamble style when reporting progress. Provid
 If any check fails, report the failing step, the exact command to reproduce locally (including how to activate `songshare-analyze-cpu`), and a short plan to fix it.
 
 # Example local commands (human-run)
-- Create Conda env: `make analyze-env && conda activate songshare-analyze-cpu`
+- Create Conda env: `make songshare-analyze-cpu && conda activate songshare-analyze-cpu`
 - Install dev deps: `make install` (or `poetry install`)
 - Run lint: `make lint`
 - Run typecheck: `make typecheck`
 - Run tests: `make test`
 - Run agent quick checks: `./scripts/agent-verify-project.sh`
+- Run full checks (one-liner): `make songshare-analyze-cpu && conda activate songshare-analyze-cpu && pip install -e . && make lint && make test`
 
 # Outputs
 - Short human-friendly checklist with pass/fail and commands to reproduce

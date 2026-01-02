@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Small helper script to create and activate the conda env for analyze-based analysis.
+# Small helper script to create and activate the 'songshare-analyze-cpu' conda env.
 # Usage: ./scripts/setup-analyze.sh
 
 if ! command -v conda >/dev/null 2>&1 && ! command -v mamba >/dev/null 2>&1; then
-  echo "ERROR: conda or mamba is required to create the analyze environment."
+  echo "ERROR: conda or mamba is required to create the 'songshare-analyze-cpu' environment."
   echo "Install Miniconda or Mambaforge: https://mamba.readthedocs.io/en/latest/"
   exit 1
 fi

@@ -45,8 +45,8 @@ cat <<'EOF'
 Could not run checks automatically because neither Poetry nor the 'songshare-analyze-cpu' Conda env was found.
 Please run these steps locally:
 
-  # create the analyze env (songshare-analyze-cpu)
-  make analyze-env   # alias: make essentia-env
+  # create the 'songshare-analyze-cpu' env
+  make songshare-analyze-cpu
   conda activate songshare-analyze-cpu
   # install dev deps into that env
   pip install -e .

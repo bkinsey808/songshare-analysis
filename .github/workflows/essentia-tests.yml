@@ -1,10 +1,10 @@
-name: Essentia tests
+name: Analyze tests
 
 on:
   workflow_dispatch:
 
 jobs:
-  essentia-tests:
+  analyze-tests:
     runs-on: ubuntu-latest
     name: Run Essentia-enabled tests (optional)
     steps:
@@ -22,6 +22,6 @@ jobs:
         run: |
           poetry install
 
-      - name: Run Essentia tests
+      - name: Run analyze tests
         run: |
           pytest -q -m essentia
