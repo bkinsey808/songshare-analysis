@@ -5,7 +5,7 @@ set -euo pipefail
 # Prefer using `mamba` when available for faster installs.
 if command -v mamba >/dev/null 2>&1 || command -v conda >/dev/null 2>&1; then
   echo "Creating or updating 'songshare-analyze-cpu' environment..."
-  make analyze-env   # alias: make essentia-env
+  make songshare-analyze-cpu
   echo "Activate it with: conda activate songshare-analyze-cpu"
   echo "Then install the project (editable) inside that env: pip install -e ."
 else

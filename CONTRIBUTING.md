@@ -12,7 +12,7 @@ Environment and Poetry usage note:
 
 ```bash
 # create and activate the conda env
-make analyze-env   # alias: make essentia-env
+make songshare-analyze-cpu
 conda activate songshare-analyze-cpu
 # install Poetry in the env and run it there
 pip install poetry
