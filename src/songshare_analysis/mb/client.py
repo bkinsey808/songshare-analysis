@@ -51,10 +51,24 @@ def musicbrainz_lookup(tags: dict[str, str]) -> MBInfo:
     rec = full.get("recording") or candidate
     if not isinstance(rec, dict):
         rec = candidate
+
     # Import extraction at runtime to avoid circular imports
     from .extractors import _mb_extract_fields
 
-    return _mb_extract_fields(rec, candidate)
+    out = _mb_extract_fields(rec, candidate)
+
+    # Only include cover art when the selected candidate is a precise match.
+    # Precise rules:
+    #  - If both title and artist were provided, require exact match on both.
+    #  - If only one of title/artist provided, require an exact match on that field.
+    # Use the **search candidate** for precision checks — the full `recording`
+    # payload returned by `get_recording_by_id` may include normalized/altered
+    # fields (e.g., a generic "dummy" title) that would cause exact-match
+    # checks to fail in cases where the search result was actually precise.
+    if not _is_precise_match(title, artist, candidate, rec):
+        out.pop("cover_art", None)
+
+    return out
 
 
 def _mb_search(
@@ -119,6 +133,39 @@ def _score(candidate: dict[str, object]) -> int:
 def _candidate_title(cand: dict[str, object]) -> str | None:
     t = cand.get("title")
     return t if isinstance(t, str) else None
+
+
+def _is_precise_match(
+    title_in: str | None,
+    artist_in: str | None,
+    candidate_obj: dict[str, object],
+    full_obj: dict[str, object] | None = None,
+) -> bool:
+    """Return True when the found recording is an exact match for the
+    provided title/artist according to the project's precision policy.
+
+    This prefers the lightweight `candidate_obj` (the search result) for
+    title comparisons. When artist information is missing in the search
+    candidate (which is common), fall back to the `full_obj` returned by
+    ``get_recording_by_id`` for artist comparisons.
+    """
+    t_norm = _normalize(title_in)
+    a_norm = _normalize(artist_in)
+
+    cand_t = _normalize(_candidate_title(candidate_obj))
+    cand_a = _normalize(_candidate_artist_name(candidate_obj))
+
+    if not cand_a and full_obj is not None:
+        # Fall back to the more complete record for artist matching
+        cand_a = _normalize(_candidate_artist_name(full_obj))
+
+    if title_in and artist_in:
+        return cand_t == t_norm and cand_a == a_norm
+    if title_in:
+        return cand_t == t_norm
+    if artist_in:
+        return cand_a == a_norm
+    return False
 
 
 def _find_best_recording(
