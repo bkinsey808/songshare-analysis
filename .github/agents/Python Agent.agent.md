@@ -18,7 +18,17 @@ This repository prefers a Conda/Mamba-based development environment for Essentia
   - Otherwise: create and activate the recommended Conda env and install project deps:
     - `make songshare-analyze-cpu && conda activate songshare-analyze-cpu && pip install -e .`
 
-Always remind the user to activate `songshare-analyze-cpu` (or use `poetry run`) before running linting, type checks, or pytest when Essentia/model tests are required. If running commands on a remote VM/devcontainer, make sure you are inside that VM when invoking them.
+**IMPORTANT:** Always activate the `songshare-analyze-cpu` Conda environment before running commands that depend on native or optional packages (for example, Essentia, `mutagen`, or test suites). Running `pytest` without the environment activated commonly results in `command not found` or missing-native-dependency failures. Example usage:
+
+- Activate and run tests:
+  - `conda activate songshare-analyze-cpu`
+  - `pytest -q`
+
+Or use the one-liner:
+
+- `make songshare-analyze-cpu && conda activate songshare-analyze-cpu && pip install -e . && pytest -q`
+
+You can also use `poetry run pytest` if you prefer `poetry`. If running commands on a remote VM/devcontainer, make sure you are inside that VM when invoking them.
 
 # Checklist the agent must enforce for any change (in this order)
 1. Keep individual files small when possible (prefer <400 LOC). Split large files into well-named modules.
@@ -48,7 +58,7 @@ If any check fails, report the failing step, the exact command to reproduce loca
 - Install dev deps: `make install` (or `poetry install`)
 - Run lint: `make lint`
 - Run typecheck: `make typecheck`
-- Run tests: `make test`
+- Run tests (inside environment): `conda activate songshare-analyze-cpu && pytest -q` (or `make test`)
 - Run agent quick checks: `./scripts/agent-verify-project.sh`
 - Run full checks (one-liner): `make songshare-analyze-cpu && conda activate songshare-analyze-cpu && pip install -e . && make lint && make test`
 

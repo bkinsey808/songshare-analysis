@@ -46,6 +46,8 @@ def test_musicbrainz_lookup_monkeypatch(monkeypatch: pytest.MonkeyPatch) -> None
     assert res.get("recording_title") == "Om Nama Shivaya"
     assert res.get("artist") == "Raphael"
     assert res.get("release_title") == "Soundcloud"
+    # Cover art should be present for precise (title+artist) matches
+    assert res.get("cover_art") == "https://coverartarchive.org/release/rel-1/front"
 
 
 class FakeMBMulti:
@@ -73,6 +75,34 @@ class FakeMBMulti:
                 "title": "dummy",
                 "artist-credit": [{"name": "Artist"}],
                 "release-list": [{"id": "rel-1", "title": "Rel"}],
+            }
+        }
+
+
+class FakeMBFuzzy:
+    """Returns candidates that do not exactly match the provided title/artist."""
+
+    def set_useragent(self, app: str, version: str, contact: str) -> None:
+        pass
+
+    def search_recordings(self, limit: int = 3, **kwargs: Any) -> dict[str, Any]:
+        recs = [
+            {
+                "id": "rec-live",
+                "title": f"{kwargs.get('recording')} (live)",
+                "artist-credit": [{"name": "Someone Else"}],
+                "score": 95,
+            }
+        ]
+        return {"recording-list": recs}
+
+    def get_recording_by_id(self, rec_id: str, includes: Any = None) -> dict[str, Any]:
+        return {
+            "recording": {
+                "id": rec_id,
+                "title": "dummy",
+                "artist-credit": [{"name": "Someone Else"}],
+                "release-list": [{"id": "rel-live", "title": "Live Rel"}],
             }
         }
 
@@ -172,3 +202,42 @@ def test_tie_break_uses_smallest_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Expect 'rec-a' (lexicographically smaller) to be chosen when scores equal
     assert res.get("recording_id") == "rec-a"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Network tests skipped on Windows")
+def test_cover_art_absent_for_fuzzy_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeMBFuzzy()
+    monkeypatch.setitem(sys.modules, "musicbrainzngs", fake)
+
+    tags = {"TIT2": "Some Song", "TPE1": "Artist"}
+    res = musicbrainz_lookup(tags)
+
+    # Candidate exists but is not a precise title+artist match, so cover_art
+    # should be omitted to avoid mismatched album art.
+    assert "cover_art" not in res
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Network tests skipped on Windows")
+def test_cover_art_absent_for_fuzzy_title_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeMBFuzzy()
+    monkeypatch.setitem(sys.modules, "musicbrainzngs", fake)
+
+    tags = {"TIT2": "Some Song"}
+    res = musicbrainz_lookup(tags)
+
+    # When only title provided and the found recording title is fuzzy, do not
+    # supply cover_art.
+    assert "cover_art" not in res
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Network tests skipped on Windows")
+def test_cover_art_present_for_exact_title_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeMBMulti()
+    monkeypatch.setitem(sys.modules, "musicbrainzngs", fake)
+
+    tags = {"TIT2": "Test Song"}
+    res = musicbrainz_lookup(tags)
+
+    assert res.get("cover_art") == "https://coverartarchive.org/release/rel-1/front"
