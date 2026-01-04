@@ -22,7 +22,12 @@ fi
 if command -v mamba >/dev/null 2>&1 && mamba env list | grep -q "songshare-analyze-cpu" 2>/dev/null; then
   echo "Found 'songshare-analyze-cpu' env. Running checks inside it"
   mamba run -n songshare-analyze-cpu ruff check .
-  mamba run -n songshare-analyze-cpu isort --check-only .
+  if mamba run -n songshare-analyze-cpu which isort >/dev/null 2>&1; then
+    mamba run -n songshare-analyze-cpu isort --check-only .
+  else
+    echo "isort not found in 'songshare-analyze-cpu' env; please install it (e.g. 'pip install isort' or re-run 'make songshare-analyze-cpu && pip install -e .')"
+    exit 1
+  fi
   mamba run -n songshare-analyze-cpu black --check .
   mamba run -n songshare-analyze-cpu pyright src/
   mamba run -n songshare-analyze-cpu pytest -q
@@ -33,7 +38,12 @@ fi
 if command -v conda >/dev/null 2>&1 && conda env list | grep -q "songshare-analyze-cpu" 2>/dev/null; then
   echo "Found 'songshare-analyze-cpu' env. Running checks inside it"
   conda run -n songshare-analyze-cpu ruff check .
-  conda run -n songshare-analyze-cpu isort --check-only .
+  if conda run -n songshare-analyze-cpu which isort >/dev/null 2>&1; then
+    conda run -n songshare-analyze-cpu isort --check-only .
+  else
+    echo "isort not found in 'songshare-analyze-cpu' env; please install it (e.g. 'pip install isort' or re-run 'make songshare-analyze-cpu && pip install -e .')"
+    exit 1
+  fi
   conda run -n songshare-analyze-cpu black --check .
   conda run -n songshare-analyze-cpu pyright src/
   conda run -n songshare-analyze-cpu pytest -q

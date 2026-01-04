@@ -21,5 +21,6 @@
   "reportUnknownVariableType": false,
   "reportUnknownArgumentType": false,
   "reportUnknownLambdaType": false,
-  "reportUnknownParameterType": false
+  "reportUnknownParameterType": false,
+  "reportMissingModuleSource": false
 }

@@ -1,0 +1,3 @@
+from typing import Any
+
+def File(path: str) -> Any: ...
