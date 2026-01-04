@@ -20,9 +20,9 @@ def test_read_id3_on_created_mp3(tmp_path: Path) -> None:
     except Exception as exc:  # pragma: no cover - test dependency
         pytest.skip("mutagen not available: %s" % exc)
 
-    tags = ID3()  # pyright: ignore
-    tags.add(TIT2(encoding=3, text=["Test Title"]))  # pyright: ignore
-    tags.add(TPE1(encoding=3, text=["Some Artist"]))  # pyright: ignore
+    tags = ID3()
+    tags.add(TIT2(encoding=3, text=["Test Title"]))
+    tags.add(TPE1(encoding=3, text=["Some Artist"]))
     tags.save(str(p))
 
     info = read_id3(p)

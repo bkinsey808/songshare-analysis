@@ -29,4 +29,6 @@ dependencies:
       - pytest-xdist
       - black
       - ruff
+      - isort
+      - mutagen>=1.46.0
       - tomli
