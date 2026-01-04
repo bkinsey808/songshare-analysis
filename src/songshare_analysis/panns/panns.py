@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import sys
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 logger = getLogger(__name__)
+
+# Track whether PANNs has already printed its one-time startup message
+_panns_initialized = False
 
 
 class PannsNotInstalled(RuntimeError):
@@ -48,6 +52,33 @@ def _detect_best_device() -> str:
     return "cpu"
 
 
+_panns_initialized = False
+
+
+def _suppress_output():
+    """Context manager that silences stdout/stderr for noisy third-party libs."""
+    import os
+
+    class _Ctx:
+        def __enter__(self):
+            self.devnull = os.open(os.devnull, os.O_WRONLY)
+            self.saved_stdout = os.dup(1)
+            self.saved_stderr = os.dup(2)
+            os.dup2(self.devnull, 1)
+            os.dup2(self.devnull, 2)
+
+        def __exit__(self, exc_type, exc, tb):
+            import os
+
+            os.dup2(self.saved_stdout, 1)
+            os.dup2(self.saved_stderr, 2)
+            os.close(self.saved_stdout)
+            os.close(self.saved_stderr)
+            os.close(self.devnull)
+
+    return _Ctx()
+
+
 def infer_genre_panns(
     audio_path: Path, device: str | None = None, top_k: int = 3
 ) -> Dict[str, Any]:
@@ -74,7 +105,40 @@ def infer_genre_panns(
     """
     SoundTagging = _import_panns()
 
-    model = SoundTagging(device=device)
+    # Create the model while silencing noisy library stdout/stderr and print a
+    # single top-level message about the chosen device once per run.
+    # Use a module attribute instead of the `global` statement to avoid the
+    # discouraged `global` pattern flagged by linters.
+    initialized = getattr(sys.modules[__name__], "_panns_initialized", False)
+    if not initialized:
+        with _suppress_output():
+            model = SoundTagging(device=device)
+        # Determine the device label from the explicit argument or the model
+        device_label = device or getattr(model, "device", None) or "cpu"
+        print(f"Using {str(device_label).upper()}.")  # noqa: T201
+        # Attempt to discover a checkpoint path from the model and print it
+        # once for user visibility (keeps per-file output concise).
+        ck_attrs = [
+            "checkpoint_path",
+            "checkpoint",
+            "checkpoint_file",
+            "ckpt_path",
+            "pth_path",
+            "pth",
+        ]
+        for a in ck_attrs:
+            try:
+                val = getattr(model, a, None)
+            except Exception:
+                val = None
+            if isinstance(val, str) and val:
+                print(f"Checkpoint path: {val}")  # noqa: T201
+                break
+        globals()["_panns_initialized"] = True
+    else:
+        # Subsequent calls: construct without printing (suppress outputs again)
+        with _suppress_output():
+            model = SoundTagging(device=device)
 
     # call inference - panns_inference historically accepted a file path,
     # but some releases expect a waveform array instead. Try path first and

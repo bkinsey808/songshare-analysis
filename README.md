@@ -2,6 +2,26 @@
 
 A small, well-structured Python project scaffold for the Songshare analysis codebase.
 
+## Running Essentia-based analysis (helper script)
+
+You can run Essentia analysis with the included helper script. The script can optionally ensure required runtime dependencies and optional extras are installed into the `songshare-analyze-cpu` conda environment.
+
+- Ensure the conda environment exists and is active (mamba is preferred):
+
+  make songshare-analyze-cpu
+  mamba activate songshare-analyze-cpu
+
+- To run analysis recursively on a directory and install required deps/extras automatically, use:
+
+  ./scripts/run-with-analyze.sh "/path/to/dir" -r --ensure-deps
+
+This will:
+- perform an editable install of the package inside the env (if missing),
+- install packages from `requirements.txt`, and
+- install optional extras `essentia` and `panns` defined in `pyproject.toml`.
+
+The script is idempotent and quiet by default; it prints a short notice when installing dependencies.
+
 This repository includes a `src/` style Python package layout, minimal example code, tests, and recommended developer tooling.
 
 Quick start

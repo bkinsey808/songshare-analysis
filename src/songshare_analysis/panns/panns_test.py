@@ -36,6 +36,30 @@ def _inject_fake_module(fake_cls, name: str = "SoundTagging"):
     sys.modules["panns_inference"] = mod
 
 
+class _FakeTaggerWithCheckpoint(_FakeTaggerBasic):
+    def __init__(self, device: str = "cpu"):
+        super().__init__(device=device)
+        # Simulate the attribute name used by panns to advertise the checkpoint
+        self.checkpoint_path = "/home/bkinsey/panns_data/Cnn14_mAP=0.431.pth"
+
+
+def test_infer_genre_panns_prints_checkpoint(monkeypatch, tmp_path: Path, capsys):
+    audio = tmp_path / "f.wav"
+    audio.write_text("fake")
+
+    _inject_fake_module(_FakeTaggerWithCheckpoint)
+
+    # Ensure the one-time print happens during this test
+    monkeypatch.setattr(panns, "_panns_initialized", False)
+
+    panns.infer_genre_panns(audio)
+
+    captured = capsys.readouterr()
+    assert "Using CPU." in captured.out
+    assert "Checkpoint path:" in captured.out
+    assert "Cnn14_mAP=0.431.pth" in captured.out
+
+
 def test_infer_genre_panns_basic(monkeypatch, tmp_path: Path):
     audio = tmp_path / "f.wav"
     audio.write_text("fake")

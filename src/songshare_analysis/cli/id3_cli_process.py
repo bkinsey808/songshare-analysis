@@ -264,53 +264,105 @@ def _process_files_and_aggregate(
         "beat_cv_count": 0,
     }
 
-    def _file_result_to_counters(res: dict) -> dict:
-        """Convert a single file processing result into per-file counter increments."""
-        c = {
-            "tags_applied": 1 if res.get("applied") else 0,
-            "covers_embedded": 1 if res.get("embed") is True else 0,
-            "covers_failed": 1 if res.get("embed") is False else 0,
-            "files_skipped": 1 if res.get("skipped") else 0,
-            "covers_already_present": 1 if res.get("cover_already_present") else 0,
-            "covers_download_attempted": (
-                1 if res.get("cover_download_attempted") else 0
-            ),
-            "covers_download_success": 1 if res.get("cover_download_success") else 0,
-            "tit2_changed": 1 if res.get("tit2_changed") else 0,
-            "rhythm_detected": 0,
-            "rhythm_human": 0,
-            "rhythm_clicktrack": 0,
-            "rhythm_uncertain": 0,
-            "beat_cv_sum": 0.0,
-            "beat_cv_count": 0,
-        }
-        timing = res.get("rhythm_timing")
-        if isinstance(timing, dict):
-            c["rhythm_detected"] = 1
-            label = timing.get("label")
-            if label == "human":
-                c["rhythm_human"] = 1
-            elif label == "clicktrack":
-                c["rhythm_clicktrack"] = 1
-            else:
-                c["rhythm_uncertain"] = 1
-            beat_cv = timing.get("beat_cv")
-            try:
-                if beat_cv is not None:
-                    c["beat_cv_sum"] = float(beat_cv)
-                    c["beat_cv_count"] = 1
-            except Exception:
-                pass
-        return c
+    non_verbose = not getattr(args, "verbose", False)
 
     for f in files:
         counters["files_processed"] += 1
-        res = _process_file(f, args, logger)
-        inc = _file_result_to_counters(res)
+        inc = _process_single_file(f, args, logger, non_verbose)
         for k, v in inc.items():
             counters[k] += v
 
     return counters
+
+
+def _file_result_to_counters(res: dict) -> dict:
+    """Convert a single file processing result into per-file counter increments."""
+    c = {
+        "tags_applied": 1 if res.get("applied") else 0,
+        "covers_embedded": 1 if res.get("embed") is True else 0,
+        "covers_failed": 1 if res.get("embed") is False else 0,
+        "files_skipped": 1 if res.get("skipped") else 0,
+        "covers_already_present": 1 if res.get("cover_already_present") else 0,
+        "covers_download_attempted": (1 if res.get("cover_download_attempted") else 0),
+        "covers_download_success": 1 if res.get("cover_download_success") else 0,
+        "tit2_changed": 1 if res.get("tit2_changed") else 0,
+        "rhythm_detected": 0,
+        "rhythm_human": 0,
+        "rhythm_clicktrack": 0,
+        "rhythm_uncertain": 0,
+        "beat_cv_sum": 0.0,
+        "beat_cv_count": 0,
+    }
+    timing = res.get("rhythm_timing")
+    if isinstance(timing, dict):
+        c["rhythm_detected"] = 1
+        label = timing.get("label")
+        if label == "human":
+            c["rhythm_human"] = 1
+        elif label == "clicktrack":
+            c["rhythm_clicktrack"] = 1
+        else:
+            c["rhythm_uncertain"] = 1
+        beat_cv = timing.get("beat_cv")
+        try:
+            if beat_cv is not None:
+                c["beat_cv_sum"] = float(beat_cv)
+                c["beat_cv_count"] = 1
+        except Exception:
+            pass
+    return c
+
+
+def _safe_read_sidecar(path: Path):
+    try:
+        return essentia_extractor.read_sidecar(path)
+    except Exception:
+        return None
+
+
+def _print_file_summary(
+    path: Path,
+    res: dict,
+    sidecar_changed: bool,
+    non_verbose: bool,
+) -> None:
+    if not non_verbose:
+        return
+    # Compute cover status
+    cover_status = "none"
+    if res.get("cover_already_present"):
+        cover_status = "already-present"
+    elif res.get("embed") is True:
+        cover_status = "embedded"
+    elif res.get("embed") is False:
+        cover_status = "embed-failed"
+
+    tags_status = "applied" if res.get("applied") else "unchanged"
+    json_status = "updated" if sidecar_changed else "unchanged"
+
+    print(f"Processing: {path}")  # noqa: T201
+    print(f"  Cover: {cover_status}")  # noqa: T201
+    print(f"  Tags: {tags_status}")  # noqa: T201
+    print(f"  Sidecar: {json_status}")  # noqa: T201
+
+
+def _process_single_file(
+    path: Path,
+    args: ProcessArgs,
+    logger: Logger,
+    non_verbose: bool,
+) -> dict:
+    """Process a single file and return counter increments dict.
+
+    This extracts the per-file branching so `_process_files_and_aggregate`
+    itself stays small and easy to reason about (reduces McCabe complexity).
+    """
+    pre_sidecar = _safe_read_sidecar(path)
+    res = _process_file(path, args, logger)
+    post_sidecar = _safe_read_sidecar(path)
+    sidecar_changed = pre_sidecar != post_sidecar
+    _print_file_summary(path, res, sidecar_changed, non_verbose)
+    return _file_result_to_counters(res)
 
 
 def _process_all_files(

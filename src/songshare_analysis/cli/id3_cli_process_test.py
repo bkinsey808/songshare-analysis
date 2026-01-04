@@ -228,6 +228,36 @@ def test_analyze_includes_semantic_genre(monkeypatch: Any, tmp_path: Path) -> No
     assert analysis["semantic"]["genre"]["top"] == "Rock"
 
 
+def test_non_verbose_prints_processing_path(
+    monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """When not verbose, the CLI should print the path being processed."""
+    import songshare_analysis.cli.id3_cli_process as id3_process
+
+    # Make CLI operate on our test file list and avoid heavy extractors
+    monkeypatch.setattr(
+        id3_process, "_iter_audio_files", lambda p, r: [Path("test_data/dummy.mp3")]
+    )
+    monkeypatch.setattr(id3_process, "read_id3", _fake_read_id3)
+
+    def fake_extract_basic(p: Path) -> dict:
+        return {"analysis": {}}
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor, "extract_basic", fake_extract_basic
+    )
+
+    monkeypatch.setattr(
+        id3_process.essentia_extractor,
+        "write_analysis_sidecar",
+        lambda p, a: p.with_suffix(p.suffix + ".analysis.json"),
+    )
+
+    main(["id3", "test_data/dummy.mp3", "--analyze"])  # no --verbose
+    out = capsys.readouterr().out
+    assert "Processing: test_data/dummy.mp3" in out
+
+
 def test_verbose_prints_proposed_tags_on_analyze(
     monkeypatch: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:

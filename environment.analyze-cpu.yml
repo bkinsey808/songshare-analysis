@@ -1,9 +1,12 @@
 name: songshare-analyze-cpu
 channels:
   - conda-forge
+  - pytorch
 dependencies:
   - python=3.11
   - numpy
+  - pytorch
+  - cpuonly
   - scipy
   - librosa
   - pysoundfile

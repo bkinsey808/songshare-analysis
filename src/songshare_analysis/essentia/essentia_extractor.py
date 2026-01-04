@@ -326,8 +326,11 @@ def extract_semantic(audio_path: Path) -> dict:
         essentia, es = _essentia_import()
         if hasattr(es, "MusicExtractor"):
             with _suppress_essentia_info(), _suppress_essentia_output():
+                # Load audio into memory and call MusicExtractor with audio data
+                loader = es.MonoLoader(filename=str(audio_path))
+                audio = loader()
                 me = es.MusicExtractor()
-                pool = _call_music_extractor(me, audio_path)
+                pool = _call_music_extractor(me, audio)
             if pool is not None:
                 genre_top = pool.get("genre.top") or pool.get("genre")
                 top_conf = pool.get("genre.top_confidence") or pool.get(
