@@ -3,4 +3,6 @@
 This package exists to make the helper scripts importable in tests.
 """
 
+from . import agent_checks  # re-export the submodule for tests and imports
+
 __all__ = ["agent_checks"]
