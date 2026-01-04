@@ -40,3 +40,39 @@ def test_extract_semantic_adds_panns_deciles(monkeypatch, tmp_path: Path):
     assert first_key == "g9"
     assert genre_sd["labels"][0] == "g9"
     assert genre_sd["probs"][0] == probs["g9"]
+
+
+def test_extract_semantic_essentia_fallback(monkeypatch, tmp_path: Path):
+    # Create a fake MusicExtractor that returns a genre
+    fake_pool = {"genre.top": "folk", "genre.top_confidence": 0.82}
+
+    class FakeME:
+        def __call__(self, audio_in):
+            return fake_pool
+
+    class FakeES:
+        # MonoLoader should return a callable that returns an audio-like array
+        def MonoLoader(self, filename=None):
+            class L:
+                def __call__(self):
+                    return [0.0] * 44100
+
+            return L()
+
+        def MusicExtractor(self):
+            return FakeME()
+
+    # Monkeypatch the internal _essentia_import to return our fake es
+    import songshare_analysis.essentia.essentia_extractor as ex_mod
+
+    monkeypatch.setattr(ex_mod, "_essentia_import", lambda: (None, FakeES()))
+
+    audio = tmp_path / "f.mp3"
+    audio.write_text("")
+
+    res = ex_mod.extract_semantic(audio)
+    assert "semantic" in res
+    genre = res["semantic"].get("genre")
+    assert isinstance(genre, dict)
+    assert genre.get("top") == "folk"
+    assert abs(genre.get("top_confidence", 0) - 0.82) < 1e-6
